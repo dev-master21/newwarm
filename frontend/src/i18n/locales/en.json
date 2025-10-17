@@ -1,0 +1,106 @@
+{
+  "nav": {
+    "home": "Home",
+    "villas": "Villas",
+    "about": "About Us",
+    "contact": "Contact",
+    "shortlist": "My Shortlist"
+  },
+  "hero": {
+    "title": "Luxury Villas in Phuket",
+    "subtitle": "Find Your Perfect Paradise",
+    "searchButton": "Find your ideal villa"
+  },
+  "search": {
+    "location": "Location",
+    "villaName": "Villa Name",
+    "bedrooms": "Number of Bedrooms",
+    "checkIn": "Check in",
+    "checkOut": "Check out",
+    "priceRange": "Price Range",
+    "minPrice": "Min Price",
+    "maxPrice": "Max Price",
+    "search": "Search",
+    "propertyName": "Or search by property name",
+    "findIdealVilla": "Find your ideal villa"
+  },
+  "villa": {
+    "bedrooms": "Bedrooms",
+    "bathrooms": "Bathrooms",
+    "adults": "Adults",
+    "children": "Children",
+    "area": "Area",
+    "perNight": "per night",
+    "bookNow": "Book Now",
+    "inquire": "Inquire Now",
+    "addToShortlist": "Add to Shortlist",
+    "removeFromShortlist": "Remove from Shortlist",
+    "viewDetails": "View Details",
+    "quickFacts": "Quick Facts",
+    "reviews": "Guest Reviews",
+    "availability": "Availability",
+    "location": "Location",
+    "amenities": "Amenities",
+    "features": "Features"
+  },
+  "contact": {
+    "title": "Contact Us",
+    "subtitle": "Get in touch with our team",
+    "name": "Your Name",
+    "email": "Email Address",
+    "country": "Country",
+    "message": "Message",
+    "travelDates": "Travel Dates",
+    "from": "From",
+    "to": "To",
+    "send": "Send Message",
+    "success": "Message sent successfully!",
+    "error": "Failed to send message. Please try again."
+  },
+  "about": {
+    "title": "About WARM+",
+    "subtitle": "Your trusted partner for luxury villa rentals in Phuket",
+    "mission": "Our Mission",
+    "vision": "Our Vision",
+    "values": "Our Values"
+  },
+  "footer": {
+    "links": "Quick Links",
+    "booking": "Booking Enquiries",
+    "connect": "Connect with Us",
+    "copyright": "Copyright © 2024 WARM Plus. All rights reserved.",
+    "phone": "Phone",
+    "email": "Email",
+    "address": "Address",
+    "followUs": "Follow Us"
+  },
+  "booking": {
+    "title": "Booking Request",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "email": "Email",
+    "phone": "Phone Number",
+    "country": "Country",
+    "checkIn": "Check-in Date",
+    "checkOut": "Check-out Date",
+    "adults": "Number of Adults",
+    "children": "Number of Children",
+    "comments": "Additional Comments",
+    "submit": "Submit Request",
+    "success": "Booking request submitted successfully!",
+    "error": "Failed to submit booking. Please try again."
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "retry": "Try Again",
+    "viewAll": "View All",
+    "showMore": "Show More",
+    "showLess": "Show Less",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "close": "Close",
+    "currency": "THB"
+  }
+}

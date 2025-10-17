@@ -1,0 +1,65 @@
+/* Базовые переменные и сброс стилей */
+:root {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Убираем конфликтующие стили body */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ВАЖНО: НЕ используем display: flex и place-items: center для body */
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  /* Убираем display: flex и place-items: center - это причина проблем! */
+}
+
+/* Ссылки с красным цветом */
+a {
+  font-weight: 500;
+  color: #dc2626;
+  text-decoration: none;
+  transition: color 0.25s;
+}
+
+a:hover {
+  color: #991b1b;
+}
+
+/* Кнопки с красной темой */
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.25s;
+}
+
+/* Светлая тема */
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #111827;
+    background-color: #ffffff;
+  }
+}
+
+/* Темная тема */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color: rgba(255, 255, 255, 0.87);
+    background-color: #111827;
+  }
+}

@@ -1,0 +1,106 @@
+{
+  "nav": {
+    "home": "Inicio",
+    "villas": "Villas",
+    "about": "Acerca de",
+    "contact": "Contacto",
+    "shortlist": "Favoritos"
+  },
+  "hero": {
+    "title": "Villas de lujo en Phuket",
+    "subtitle": "Encuentra tu paraíso perfecto",
+    "searchButton": "Encuentra tu villa ideal"
+  },
+  "search": {
+    "location": "Ubicación",
+    "villaName": "Nombre de la villa",
+    "bedrooms": "Número de habitaciones",
+    "checkIn": "Entrada",
+    "checkOut": "Salida",
+    "priceRange": "Rango de precios",
+    "minPrice": "Precio mínimo",
+    "maxPrice": "Precio máximo",
+    "search": "Buscar",
+    "propertyName": "O buscar por nombre",
+    "findIdealVilla": "Encuentra tu villa ideal"
+  },
+  "villa": {
+    "bedrooms": "Habitaciones",
+    "bathrooms": "Baños",
+    "adults": "Adultos",
+    "children": "Niños",
+    "area": "Área",
+    "perNight": "por noche",
+    "bookNow": "Reservar ahora",
+    "inquire": "Consultar",
+    "addToShortlist": "Añadir a favoritos",
+    "removeFromShortlist": "Eliminar de favoritos",
+    "viewDetails": "Ver detalles",
+    "quickFacts": "Datos importantes",
+    "reviews": "Reseñas de huéspedes",
+    "availability": "Disponibilidad",
+    "location": "Ubicación",
+    "amenities": "Comodidades",
+    "features": "Características"
+  },
+  "contact": {
+    "title": "Contáctanos",
+    "subtitle": "Ponte en contacto con nuestro equipo",
+    "name": "Tu nombre",
+    "email": "Correo electrónico",
+    "country": "País",
+    "message": "Mensaje",
+    "travelDates": "Fechas de viaje",
+    "from": "Desde",
+    "to": "Hasta",
+    "send": "Enviar mensaje",
+    "success": "¡Mensaje enviado con éxito!",
+    "error": "Error al enviar el mensaje. Por favor, inténtalo de nuevo."
+  },
+  "about": {
+    "title": "Acerca de WARM+",
+    "subtitle": "Tu socio de confianza para alquiler de villas de lujo en Phuket",
+    "mission": "Nuestra misión",
+    "vision": "Nuestra visión",
+    "values": "Nuestros valores"
+  },
+  "footer": {
+    "links": "Enlaces rápidos",
+    "booking": "Consultas de reserva",
+    "connect": "Conéctate con nosotros",
+    "copyright": "Copyright © 2024 WARM Plus. Todos los derechos reservados.",
+    "phone": "Teléfono",
+    "email": "Correo",
+    "address": "Dirección",
+    "followUs": "Síguenos"
+  },
+  "booking": {
+    "title": "Solicitud de reserva",
+    "firstName": "Nombre",
+    "lastName": "Apellido",
+    "email": "Correo electrónico",
+    "phone": "Teléfono",
+    "country": "País",
+    "checkIn": "Fecha de entrada",
+    "checkOut": "Fecha de salida",
+    "adults": "Número de adultos",
+    "children": "Número de niños",
+    "comments": "Comentarios adicionales",
+    "submit": "Enviar solicitud",
+    "success": "¡Solicitud de reserva enviada con éxito!",
+    "error": "Error al enviar la reserva. Por favor, inténtalo de nuevo."
+  },
+  "common": {
+    "loading": "Cargando...",
+    "error": "Ocurrió un error",
+    "retry": "Intentar de nuevo",
+    "viewAll": "Ver todo",
+    "showMore": "Mostrar más",
+    "showLess": "Mostrar menos",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "close": "Cerrar",
+    "currency": "THB"
+  }
+}
