@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import { HiSearch, HiPlay } from 'react-icons/hi'
@@ -15,24 +15,24 @@ const HeroSection = ({ onSearchClick }) => {
   const slides = [
     {
       image: 'https://images.unsplash.com/photo-1540541338287-41700207dee6?w=1920',
-      title: 'Luxury Beachfront Villas',
-      subtitle: 'Experience paradise in Phuket',
+      title: t('hero.title'),
+      subtitle: t('hero.subtitle'),
     },
     {
       image: 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=1920',
-      title: 'Private Pool Villas',
-      subtitle: 'Your own piece of heaven',
+      title: t('hero.title'),
+      subtitle: t('hero.subtitle'),
     },
     {
       image: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1920',
-      title: 'Modern Architecture',
-      subtitle: 'Where luxury meets design',
+      title: t('hero.title'),
+      subtitle: t('hero.subtitle'),
     },
   ]
 
   return (
     <>
-      <section className="relative h-screen">
+      <section className="relative h-screen overflow-hidden">
         <Swiper
           modules={[Autoplay, Pagination, EffectFade]}
           effect="fade"
@@ -57,7 +57,7 @@ const HeroSection = ({ onSearchClick }) => {
                 
                 {/* Content */}
                 <div className="relative h-full flex items-center justify-center">
-                  <div className="container mx-auto px-4">
+                  <div className="container mx-auto px-4 max-w-7xl">
                     <motion.div
                       initial={{ opacity: 0, y: 30 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -86,30 +86,35 @@ const HeroSection = ({ onSearchClick }) => {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.6, delay: 0.8 }}
-                        className="flex flex-col sm:flex-row gap-4 justify-center"
+                        className="flex flex-col sm:flex-row gap-4 justify-center items-center"
                       >
-                        <button
+                        <motion.button
                           onClick={onSearchClick}
-                          className="group px-8 py-4 bg-primary-600 hover:bg-primary-700 
-                                   text-white rounded-full font-medium text-lg 
-                                   transition-all transform hover:scale-105 
-                                   flex items-center justify-center space-x-2"
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          className="inline-flex items-center space-x-3 px-8 py-4 
+                                   bg-[#ba2e2d] hover:bg-[#a02624] text-white text-lg 
+                                   font-medium rounded-full shadow-xl 
+                                   transition-all duration-300"
+                          style={{ whiteSpace: 'nowrap' }}
                         >
-                          <HiSearch className="w-5 h-5" />
+                          <HiSearch className="w-6 h-6 flex-shrink-0" />
                           <span>{t('hero.searchButton')}</span>
-                        </button>
+                        </motion.button>
                         
-                        <button
+                        <motion.button
                           onClick={() => setVideoModalOpen(true)}
-                          className="group px-8 py-4 bg-white/10 backdrop-blur-md 
-                                   hover:bg-white/20 text-white rounded-full 
-                                   font-medium text-lg transition-all 
-                                   transform hover:scale-105 
-                                   flex items-center justify-center space-x-2"
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          className="inline-flex items-center space-x-3 px-8 py-4 
+                                   bg-white/10 backdrop-blur-md hover:bg-white/20 
+                                   text-white rounded-full font-medium text-lg 
+                                   transition-all duration-300"
+                          style={{ whiteSpace: 'nowrap' }}
                         >
-                          <HiPlay className="w-5 h-5" />
-                          <span>Watch Video</span>
-                        </button>
+                          <HiPlay className="w-6 h-6 flex-shrink-0" />
+                          <span>{t('common.watchVideo') || 'Watch Video'}</span>
+                        </motion.button>
                       </motion.div>
                     </motion.div>
                   </div>
@@ -123,7 +128,9 @@ const HeroSection = ({ onSearchClick }) => {
                   className="absolute bottom-8 left-1/2 transform -translate-x-1/2"
                 >
                   <div className="flex flex-col items-center">
-                    <span className="text-white text-sm mb-2">Scroll Down</span>
+                    <span className="text-white text-sm mb-2">
+                      {t('common.scrollDown') || 'Scroll Down'}
+                    </span>
                     <motion.div
                       animate={{ y: [0, 10, 0] }}
                       transition={{ repeat: Infinity, duration: 1.5 }}
@@ -165,7 +172,8 @@ const HeroSection = ({ onSearchClick }) => {
             ></iframe>
             <button
               onClick={() => setVideoModalOpen(false)}
-              className="absolute -top-12 right-0 text-white text-4xl hover:text-gray-300"
+              className="absolute -top-12 right-0 text-white text-4xl hover:text-gray-300 transition-colors"
+              aria-label="Close video"
             >
               ×
             </button>

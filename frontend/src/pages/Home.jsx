@@ -1,18 +1,14 @@
-import React, { useState, useEffect } from 'react'
+// frontend/src/pages/Home.jsx
+import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { motion } from 'framer-motion'
-import { HiSearch, HiPlay } from 'react-icons/hi'
-import { useNavigate } from 'react-router-dom'
 import HeroSection from '../components/Home/HeroSection'
 import FeaturedVillas from '../components/Home/FeaturedVillas'
 import WhyChooseUs from '../components/Home/WhyChooseUs'
-import Testimonials from '../components/Home/Testimonials'
-import NewsletterSection from '../components/Home/NewsletterSection'
+import WarmClubSection from '../components/Home/WarmClubSection'
 import SearchPanel from '../components/common/SearchPanel'
 
 const Home = () => {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const [isSearchOpen, setIsSearchOpen] = useState(false)
 
   return (
@@ -20,8 +16,7 @@ const Home = () => {
       <HeroSection onSearchClick={() => setIsSearchOpen(true)} />
       <FeaturedVillas />
       <WhyChooseUs />
-      <Testimonials />
-      <NewsletterSection />
+      <WarmClubSection />
       
       <SearchPanel 
         isOpen={isSearchOpen} 

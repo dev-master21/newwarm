@@ -1,3 +1,4 @@
+// frontend/src/components/Layout/Header.jsx
 import React, { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -44,6 +45,11 @@ const Header = () => {
     { path: '/contact', label: t('nav.contact') },
   ]
 
+  // Определяем цвет логотипа в зависимости от состояния
+  const logoColor = isScrolled || location.pathname !== '/' 
+    ? '#ba2e2d' 
+    : '#ffffff'
+
   return (
     <>
       <header
@@ -65,33 +71,18 @@ const Header = () => {
               <motion.div
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="flex items-center space-x-2"
+                className="flex items-center"
               >
-                <svg
-                  className="w-10 h-10"
-                  viewBox="0 0 40 40"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <circle cx="20" cy="20" r="20" fill="url(#gradient)" />
-                  <path
-                    d="M20 10L26 16L26 26L20 30L14 26L14 16L20 10Z"
-                    fill="white"
-                  />
-                  <defs>
-                    <linearGradient id="gradient" x1="0" y1="0" x2="40" y2="40">
-                      <stop offset="0%" stopColor="#3B82F6" />
-                      <stop offset="100%" stopColor="#8B5CF6" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-                <span className={`text-2xl font-bold ${
-                  isScrolled || location.pathname !== '/'
-                    ? 'text-gray-900 dark:text-white'
-                    : 'text-white'
-                }`}>
-                  WARM+
-                </span>
+                <img 
+                  src="/logo.svg"
+                  alt="WARM+"
+                  className="h-8 w-auto"
+                  style={{ 
+                    filter: isScrolled || location.pathname !== '/'
+                      ? 'none'
+                      : 'brightness(0) invert(1)'
+                  }}
+                />
               </motion.div>
             </Link>
 
@@ -104,10 +95,10 @@ const Header = () => {
                   className={`relative font-medium transition-colors duration-200 ${
                     location.pathname === link.path
                       ? isScrolled || location.pathname !== '/'
-                        ? 'text-primary-600'
+                        ? 'text-[#ba2e2d]'
                         : 'text-white'
                       : isScrolled || location.pathname !== '/'
-                        ? 'text-gray-700 dark:text-gray-300 hover:text-primary-600'
+                        ? 'text-gray-700 dark:text-gray-300 hover:text-[#ba2e2d]'
                         : 'text-white/80 hover:text-white'
                   }`}
                 >
@@ -115,7 +106,7 @@ const Header = () => {
                   {location.pathname === link.path && (
                     <motion.div
                       layoutId="navbar-indicator"
-                      className="absolute -bottom-2 left-0 right-0 h-0.5 bg-primary-600"
+                      className="absolute -bottom-2 left-0 right-0 h-0.5 bg-[#ba2e2d]"
                       initial={false}
                       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                     />
@@ -189,8 +180,9 @@ const Header = () => {
                     : 'text-white'
                 }`} />
                 {items.length > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-primary-600 text-white text-xs 
-                                 rounded-full w-5 h-5 flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#ba2e2d] 
+                                 text-white text-xs rounded-full flex items-center 
+                                 justify-center">
                     {items.length}
                   </span>
                 )}
@@ -200,7 +192,7 @@ const Header = () => {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 z-50"
+              className="lg:hidden p-2 rounded-lg"
             >
               {isMobileMenuOpen ? (
                 <HiX className={`w-6 h-6 ${
@@ -218,29 +210,19 @@ const Header = () => {
             </button>
           </div>
         </div>
-
-        {/* Language Dropdown */}
-        <AnimatePresence>
-          {isLangOpen && (
-            <LanguageSwitcher 
-              isOpen={isLangOpen}
-              onClose={() => setIsLangOpen(false)}
-            />
-          )}
-        </AnimatePresence>
       </header>
+
+      {/* Language Switcher Dropdown */}
+      <LanguageSwitcher isOpen={isLangOpen} onClose={() => setIsLangOpen(false)} />
+
+      {/* Search Panel */}
+      <SearchPanel isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
 
       {/* Mobile Menu */}
       <MobileMenu 
-        isOpen={isMobileMenuOpen}
+        isOpen={isMobileMenuOpen} 
         onClose={() => setIsMobileMenuOpen(false)}
         navLinks={navLinks}
-      />
-
-      {/* Search Panel */}
-      <SearchPanel 
-        isOpen={isSearchOpen} 
-        onClose={() => setIsSearchOpen(false)} 
       />
     </>
   )

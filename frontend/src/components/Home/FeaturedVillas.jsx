@@ -27,7 +27,6 @@ const FeaturedVillas = () => {
       setVillas(response.data || [])
     } catch (error) {
       console.error('Error loading featured villas:', error)
-      // Use demo data if API fails
       setVillas(getDemoVillas())
     } finally {
       setLoading(false)
@@ -87,7 +86,6 @@ const FeaturedVillas = () => {
   return (
     <section className="py-20 bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-4">
-        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -95,10 +93,10 @@ const FeaturedVillas = () => {
           className="text-center mb-12"
         >
           <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-            Featured Luxury Villas
+            {t('featured.title')}
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            Discover our handpicked selection of the finest villas in Phuket
+            {t('featured.subtitle')}
           </p>
         </motion.div>
 
@@ -108,7 +106,6 @@ const FeaturedVillas = () => {
           </div>
         ) : (
           <>
-            {/* Desktop Grid */}
             <div className="hidden lg:grid grid-cols-3 gap-8 mb-8">
               {villas.slice(0, 6).map((villa, index) => (
                 <motion.div
@@ -123,7 +120,6 @@ const FeaturedVillas = () => {
               ))}
             </div>
 
-            {/* Mobile Slider */}
             <div className="lg:hidden">
               <Swiper
                 modules={[Navigation, Pagination, Autoplay]}
@@ -136,12 +132,8 @@ const FeaturedVillas = () => {
                   disableOnInteraction: false,
                 }}
                 breakpoints={{
-                  640: {
-                    slidesPerView: 2,
-                  },
-                  768: {
-                    slidesPerView: 2,
-                  },
+                  640: { slidesPerView: 2 },
+                  768: { slidesPerView: 2 }
                 }}
                 className="pb-12"
               >
@@ -153,7 +145,6 @@ const FeaturedVillas = () => {
               </Swiper>
             </div>
 
-            {/* View All Button */}
             <motion.div
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
@@ -163,11 +154,11 @@ const FeaturedVillas = () => {
               <Link
                 to="/villas"
                 className="inline-flex items-center space-x-2 px-8 py-3 
-                         bg-primary-600 hover:bg-primary-700 text-white 
-                         rounded-full font-medium transition-all transform 
-                         hover:scale-105"
+                         bg-[#ba2e2d] hover:bg-[#a02624] text-white 
+                         rounded-full font-medium transition-colors"
+                style={{ display: 'inline-flex' }}
               >
-                <span>View All Villas</span>
+                <span>{t('featured.viewAll')}</span>
                 <HiArrowRight className="w-5 h-5" />
               </Link>
             </motion.div>

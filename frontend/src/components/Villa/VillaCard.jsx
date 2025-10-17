@@ -36,11 +36,12 @@ const VillaCard = ({ villa, viewMode = 'grid' }) => {
         whileHover={{ y: -2 }}
         className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden 
                  hover:shadow-xl transition-all duration-300"
+        style={{ maxWidth: '100%' }}
       >
         <Link to={`/villas/${villa.slug || villa.id}`}>
           <div className="flex flex-col md:flex-row">
             {/* Image */}
-            <div className="relative md:w-96 h-64 md:h-auto">
+            <div className="relative md:w-96 h-64 md:h-auto overflow-hidden">
               <img
                 src={villa.cover || 'https://images.unsplash.com/photo-1540541338287-41700207dee6?w=800'}
                 alt={villa.name}
@@ -50,9 +51,9 @@ const VillaCard = ({ villa, viewMode = 'grid' }) => {
               {/* Badge */}
               {villa.tags && villa.tags.includes('featured') && (
                 <div className="absolute top-4 left-4">
-                  <span className="px-3 py-1 bg-primary-600 text-white text-xs 
+                  <span className="px-3 py-1 bg-[#ba2e2d] text-white text-xs 
                                  font-semibold rounded-full">
-                    Featured
+                    {t('villa.featured') || 'Featured'}
                   </span>
                 </div>
               )}
@@ -63,8 +64,9 @@ const VillaCard = ({ villa, viewMode = 'grid' }) => {
                 className={`absolute top-4 right-4 p-2 rounded-full 
                          bg-white/90 backdrop-blur-sm transition-all
                          ${isInShortlist(villa.id) 
-                           ? 'text-red-500' 
-                           : 'text-gray-600 hover:text-red-500'}`}
+                           ? 'text-[#ba2e2d]' 
+                           : 'text-gray-600 hover:text-[#ba2e2d]'}`}
+                aria-label={isInShortlist(villa.id) ? t('villa.removeFromShortlist') : t('villa.addToShortlist')}
               >
                 <HiHeart className={`w-5 h-5 ${
                   isInShortlist(villa.id) ? 'fill-current' : ''
@@ -113,7 +115,7 @@ const VillaCard = ({ villa, viewMode = 'grid' }) => {
                       {formatPrice(villa.original_price)}
                     </div>
                   )}
-                  <div className="text-2xl font-bold text-primary-600">
+                  <div className="text-2xl font-bold text-[#ba2e2d]">
                     {formatPrice(villa.price)}
                   </div>
                   <div className="text-sm text-gray-500">
@@ -134,6 +136,10 @@ const VillaCard = ({ villa, viewMode = 'grid' }) => {
       whileHover={{ y: -4 }}
       className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden 
                hover:shadow-xl transition-all duration-300 group"
+          style={{ 
+            maxWidth: '100%',
+            overflow: 'hidden'
+            }}
     >
       <Link to={`/villas/${villa.slug || villa.id}`}>
         {/* Image Container */}
@@ -151,9 +157,9 @@ const VillaCard = ({ villa, viewMode = 'grid' }) => {
           {/* Badge */}
           {villa.tags && villa.tags.some && villa.tags.some(tag => tag.slug === 'featured') && (
             <div className="absolute top-4 left-4">
-              <span className="px-3 py-1 bg-primary-600 text-white text-xs 
+              <span className="px-3 py-1 bg-[#ba2e2d] text-white text-xs 
                              font-semibold rounded-full shadow-lg">
-                Featured
+                {t('villa.featured') || 'Featured'}
               </span>
             </div>
           )}
@@ -164,8 +170,9 @@ const VillaCard = ({ villa, viewMode = 'grid' }) => {
             className={`absolute top-4 right-4 p-2 rounded-full 
                      bg-white/90 backdrop-blur-sm transition-all
                      ${isInShortlist(villa.id) 
-                       ? 'text-red-500' 
-                       : 'text-gray-600 hover:text-red-500'}`}
+                       ? 'text-[#ba2e2d]' 
+                       : 'text-gray-600 hover:text-[#ba2e2d]'}`}
+            aria-label={isInShortlist(villa.id) ? t('villa.removeFromShortlist') : t('villa.addToShortlist')}
           >
             <HiHeart className={`w-5 h-5 ${
               isInShortlist(villa.id) ? 'fill-current' : ''
@@ -194,7 +201,7 @@ const VillaCard = ({ villa, viewMode = 'grid' }) => {
         <div className="p-5">
           {/* Title */}
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 
-                       group-hover:text-primary-600 transition-colors">
+                       group-hover:text-[#ba2e2d] transition-colors">
             {villa.name}
           </h3>
           

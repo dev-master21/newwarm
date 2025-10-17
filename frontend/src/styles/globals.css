@@ -1,3 +1,4 @@
+/* frontend/src/styles/globals.css */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 @tailwind base;
 @tailwind components;
@@ -153,6 +154,8 @@ body {
   padding-left: 1rem;
   padding-right: 1rem;
   overflow-x: hidden !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
 }
 
 @media (min-width: 640px) {
@@ -177,4 +180,74 @@ body {
   .container {
     max-width: 1280px !important;
   }
+}
+
+/* Базовые стили */
+* {
+  box-sizing: border-box;
+}
+
+section {
+  overflow: visible !important;
+}
+
+/* Фикс для модальных окон */
+.fixed {
+  position: fixed !important;
+}
+
+/* Убираем ограничения высоты */
+.min-h-screen {
+  min-height: 100vh;
+}
+
+/* Фикс для карточек */
+.card, [class*="card"] {
+  overflow: visible !important;
+}
+
+/* Убираем вертикальный скролл в блоках */
+.overflow-hidden {
+  overflow-x: hidden !important;
+  overflow-y: visible !important;
+}
+
+/* Специальный класс для блоков без скролла */
+.no-scrollbar {
+  overflow: visible !important;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ФИКС ДЛЯ АНИМАЦИЙ: предотвращаем появление скроллов */
+[data-framer-component-type],
+[class*="motion"] {
+  overflow: visible !important;
+}
+
+/* Фикс для hover анимаций на карточках */
+.group {
+  overflow: hidden !important;
+  position: relative !important;
+}
+
+/* Предотвращение скроллов при scale анимациях */
+[class*="hover\:scale"] {
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Фикс для кнопок с анимациями */
+button[class*="hover\:scale"],
+a[class*="hover\:scale"] {
+  display: inline-block;
+  overflow: visible !important;
+}
+
+/* Контейнер для анимаций Framer Motion */
+.motion-container {
+  overflow: visible !important;
 }
