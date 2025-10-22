@@ -24,6 +24,12 @@ function App() {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
+    // Убираем отступы но НЕ блокируем скролл!
+    document.documentElement.style.margin = '0'
+    document.documentElement.style.padding = '0'
+    document.body.style.margin = '0'
+    document.body.style.padding = '0'
+    // ВАЖНО: НЕ используем overflow: hidden для body!
   }, [theme])
 
   return (
@@ -74,6 +80,20 @@ function App() {
             color: theme === 'dark' ? '#fff' : '#1f2937',
             borderRadius: '12px',
             padding: '16px',
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)',
+            border: theme === 'dark' ? '1px solid #374151' : '1px solid #e5e7eb',
+          },
+          success: {
+            iconTheme: {
+              primary: '#dc2626',
+              secondary: '#fff',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#fff',
+            },
           },
         }}
       />

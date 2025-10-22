@@ -154,12 +154,12 @@ const FeaturedVillas = () => {
               <Link
                 to="/villas"
                 className="inline-flex items-center space-x-2 px-8 py-3 
-                         bg-[#ba2e2d] hover:bg-[#a02624] text-white 
-                         rounded-full font-medium transition-colors"
-                style={{ display: 'inline-flex' }}
+                         bg-red-600 hover:bg-red-700 text-white 
+                         rounded-full font-medium transition-all duration-300
+                         transform hover:scale-105 active:scale-95 group"
               >
-                <span>{t('featured.viewAll')}</span>
-                <HiArrowRight className="w-5 h-5" />
+                <span>{t('featured.viewAll') || 'View All Villas'}</span>
+                <HiArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
               </Link>
             </motion.div>
           </>

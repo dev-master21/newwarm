@@ -1,3 +1,7 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
 /* Базовые переменные и сброс стилей */
 :root {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -7,45 +11,158 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
 }
 
-/* Убираем конфликтующие стили body */
+/* Полный сброс стилей для убирания белых полос */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-/* ВАЖНО: НЕ используем display: flex и place-items: center для body */
-body {
+/* Убираем все отступы для html и body */
+html {
   margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-  /* Убираем display: flex и place-items: center - это причина проблем! */
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
 }
 
-/* Ссылки с красным цветом */
+body {
+  margin: 0;
+  padding: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+  /* НЕ используем display: flex и place-items: center! */
+}
+
+/* Root контейнер */
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  width: 100%;
+  position: relative;
+}
+
+/* Убираем отступы для всех секций */
+section {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+/* Главная страница - полноэкранный режим */
+.hero-section {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Фикс для Swiper */
+.swiper {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.swiper-wrapper {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.swiper-slide {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.swiper-pagination {
+  z-index: 10;
+}
+
+/* Ссылки с красным цветом WARM+ */
 a {
   font-weight: 500;
-  color: #dc2626;
+  color: inherit;
   text-decoration: none;
   transition: color 0.25s;
 }
 
 a:hover {
-  color: #991b1b;
+  color: #dc2626;
 }
 
-/* Кнопки с красной темой */
+/* Кнопки */
 button {
   border-radius: 8px;
   border: 1px solid transparent;
-  padding: 0.6em 1.2em;
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
   transition: all 0.25s;
+  background-color: transparent;
+}
+
+button:focus {
+  outline: none;
+}
+
+button:focus-visible {
+  outline: 2px solid #dc2626;
+  outline-offset: 2px;
+}
+
+/* Scrollbar стили */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #dc2626;
+  border-radius: 10px;
+  transition: background 0.3s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #b91c1c;
+}
+
+/* Темная тема scrollbar */
+.dark ::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #dc2626;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #ef4444;
+}
+
+/* Selection */
+::selection {
+  background-color: #dc2626;
+  color: white;
+}
+
+::-moz-selection {
+  background-color: #dc2626;
+  color: white;
 }
 
 /* Светлая тема */
@@ -62,4 +179,102 @@ button {
     color: rgba(255, 255, 255, 0.87);
     background-color: #111827;
   }
+}
+
+/* Анимации */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Утилиты для анимаций */
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.animate-slideUp {
+  animation: slideUp 0.5s ease-out;
+}
+
+.animate-slideDown {
+  animation: slideDown 0.5s ease-out;
+}
+
+/* Фикс для мобильных устройств */
+@media (max-width: 768px) {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+  }
+  
+  body {
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Убираем outline для всех элементов при клике мышью */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Специальные стили для видеоплеера */
+.video-player-overlay {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* Z-index система */
+.z-dropdown { z-index: 10; }
+.z-sticky { z-index: 20; }
+.z-overlay { z-index: 30; }
+.z-modal { z-index: 40; }
+.z-popover { z-index: 50; }
+.z-tooltip { z-index: 60; }
+.z-notification { z-index: 70; }
+
+/* Кастомная анимация для пульсации */
+@keyframes ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.3);
+    opacity: 0;
+  }
+}
+
+.animation-duration-3000 {
+  animation-duration: 3s;
 }

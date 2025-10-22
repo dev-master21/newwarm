@@ -13,20 +13,20 @@
   },
   "featured": {
     "title": "Featured Luxury Villas",
-    "subtitle": "Handpicked properties for an unforgettable stay",
+    "subtitle": "Hand-picked properties for an unforgettable stay",
     "viewAll": "View All Villas"
   },
   "whyChoose": {
     "title": "Why Choose WARM+",
     "subtitle": "Experience the difference with our premium service and exceptional properties",
     "trustedSecure": "Trusted & Secure",
-    "trustedSecureDesc": "Verified properties with secure booking and payment process",
+    "trustedSecureDesc": "Verified properties with secure booking and payment",
     "support247": "24/7 Support",
     "support247Desc": "Round-the-clock assistance for all your needs during your stay",
     "localExpertise": "Local Expertise",
     "localExpertiseDesc": "Deep knowledge of Phuket with personalized recommendations",
     "handpickedVillas": "Handpicked Villas",
-    "handpickedVillasDesc": "Every villa is personally selected for quality and comfort",
+    "handpickedVillasDesc": "Each villa is personally selected for quality and comfort",
     "bestLocations": "Best Locations",
     "bestLocationsDesc": "Prime locations near beaches, restaurants, and attractions",
     "exclusivePerks": "Exclusive Perks",
@@ -34,18 +34,18 @@
     "stats": {
       "villas": "Luxury Villas",
       "guests": "Happy Guests",
-      "experience": "Years Experience",
+      "experience": "Years of Experience",
       "rating": "Average Rating"
     }
   },
   "warmClub": {
     "title": "By joining the Warm Club, you get:",
-    "exclusiveBenefits": "Exclusive benefits",
+    "exclusiveBenefits": "Exclusive Benefits",
     "priorityAccess": "Priority access to promotions",
-    "welcomeDiscount": "Welcome discount of 5% on your next booking",
-    "travelInspiration": "Travel inspiration",
-    "description": "Join our exclusive community of haven-seekers and be in the know.",
-    "privacy": "We respect your privacy. Unsubscribe at any time.",
+    "welcomeDiscount": "5% welcome discount on your next booking",
+    "travelInspiration": "Travel Inspiration",
+    "description": "Join our exclusive community of haven seekers and stay informed.",
+    "privacy": "We respect your privacy. Unsubscribe anytime.",
     "emailPlaceholder": "Enter your email address",
     "subscribe": "Subscribe"
   },
@@ -55,20 +55,38 @@
     "adults": "Guests",
     "perNight": "per night",
     "featured": "Featured",
-    "addToShortlist": "Add to Shortlist",
-    "removeFromShortlist": "Remove from Shortlist",
+    "addToShortlist": "Add to shortlist",
+    "removeFromShortlist": "Remove from shortlist",
     "viewDetails": "View Details",
     "bookNow": "Book Now",
-    "inquire": "Inquire Now",
+    "inquire": "Make Inquiry",
     "description": "Luxury villa with stunning views and modern amenities"
   },
   "about": {
     "title": "About WARM+",
     "subtitle": "Your trusted partner for luxury villa rentals in Phuket",
     "ourStory": "Our Story",
-    "ourStoryText1": "Founded in 2010, WARM+ has been the premier destination for luxury villa rentals in Phuket. Our journey began with a simple vision: to provide travelers with exceptional accommodations that feel like home, but with the luxury and services of a five-star resort.",
-    "ourStoryText2": "Over the years, we've carefully curated a collection of the finest villas across Phuket, each selected for its unique character, stunning location, and exceptional amenities. Our team of local experts ensures that every stay is memorable, providing personalized service that goes above and beyond.",
-    "ourStoryText3": "Today, WARM+ is trusted by thousands of guests from around the world, and we continue to expand our portfolio while maintaining the high standards that have made us the leader in luxury villa rentals.",
+    "ourStoryText1": "Founded in 2010, WARM+ has become the premier destination for luxury villa rentals in Phuket.",
+    "ourStoryText2": "Over the years, we have carefully curated a collection of the finest villas in Phuket.",
+    "ourStoryText3": "Today, WARM+ is trusted by thousands of guests from around the world.",
+    "whyChooseTitle": "Why Choose Us",
+    "whyChooseSubtitle": "Our advantages make us the best choice",
+    "stats": {
+      "villas": "500+ Villas",
+      "guests": "10K+ Guests",
+      "experience": "15+ Years",
+      "support": "24/7 Support"
+    },
+    "features": {
+      "trustedService": "Trusted Service",
+      "trustedServiceDesc": "Proven reputation with thousands of satisfied customers",
+      "localExpertise": "Local Expertise",
+      "localExpertiseDesc": "Deep knowledge of the region and best locations",
+      "personalTouch": "Personal Touch",
+      "personalTouchDesc": "Individual attention to every guest",
+      "secureBooking": "Secure Booking",
+      "secureBookingDesc": "Protected payments and guaranteed reservations"
+    },
     "yearsOfExcellence": "Years of Excellence",
     "mission": "Our Mission",
     "missionText": "To provide unforgettable luxury villa experiences that exceed expectations",
@@ -78,7 +96,7 @@
     "valuesQuality": "Quality",
     "valuesQualityText": "We never compromise on the quality of our villas or services",
     "valuesIntegrity": "Integrity",
-    "valuesIntegrityText": "Honest, transparent dealings with all our guests and partners",
+    "valuesIntegrityText": "Honest and transparent dealings with all our guests and partners",
     "valuesExcellence": "Excellence",
     "valuesExcellenceText": "Continuous improvement in everything we do"
   },
@@ -93,6 +111,17 @@
     "bookingInquiries": "Booking Inquiries",
     "generalQuestions": "General Questions",
     "partnerships": "Partnerships",
+    "sendMessage": "Send Message",
+    "name": "Your Name",
+    "email": "Email Address",
+    "country": "Country",
+    "from": "Check-in Date",
+    "to": "Check-out Date",
+    "message": "Message",
+    "send": "Send",
+    "phone": "Phone Number",
+    "subject": "Subject",
+    "sending": "Sending...",
     "form": {
       "name": "Your Name",
       "email": "Email Address",
@@ -107,7 +136,7 @@
   },
   "search": {
     "findIdealVilla": "Find Your Ideal Villa",
-    "placeholder": "Search for villas...",
+    "placeholder": "Search villas...",
     "location": "Location",
     "checkIn": "Check-in",
     "checkOut": "Check-out",
@@ -134,11 +163,12 @@
     "quickResponse": "Quick Response",
     "mainOffice": "Main Office",
     "copyright": "All rights reserved.",
-    "followUs": "Follow Us"
+    "followUs": "Follow Us",
+    "address": "Phuket, Thailand"
   },
   "contacts": {
     "phone": "+66 123 456 789",
-    "email": "info@warmplus.com",
+    "email": "info@warmphuket.com",
     "address": "Phuket, Thailand"
   },
   "common": {
@@ -165,7 +195,7 @@
     "confirm": "Confirm"
   },
   "newsletter": {
-    "title": "Stay Updated",
+    "title": "Stay Informed",
     "subtitle": "Subscribe to our newsletter for exclusive offers",
     "placeholder": "Enter your email",
     "button": "Subscribe",

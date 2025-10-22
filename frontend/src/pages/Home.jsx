@@ -1,4 +1,3 @@
-// frontend/src/pages/Home.jsx
 import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import HeroSection from '../components/Home/HeroSection'
@@ -12,7 +11,7 @@ const Home = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false)
 
   return (
-    <>
+    <div className="w-full">
       <HeroSection onSearchClick={() => setIsSearchOpen(true)} />
       <FeaturedVillas />
       <WhyChooseUs />
@@ -22,7 +21,7 @@ const Home = () => {
         isOpen={isSearchOpen} 
         onClose={() => setIsSearchOpen(false)} 
       />
-    </>
+    </div>
   )
 }
 
