@@ -20,6 +20,9 @@ const Shortlist = lazy(() => import('./pages/Shortlist'))
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'))
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
 const AddProperty = lazy(() => import('./pages/admin/AddProperty'))
+const Properties = lazy(() => import('./pages/admin/Properties'))
+const EditProperty = lazy(() => import('./pages/admin/EditProperty'))
+const Bookings = lazy(() => import('./pages/admin/Bookings'))
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -47,9 +50,6 @@ function App() {
     document.body.style.margin = '0'
     document.body.style.padding = '0'
   }, [theme])
-
-  // Check if current route is admin
-  const isAdminRoute = location.pathname.startsWith('/admin')
 
   return (
     <>
@@ -103,28 +103,42 @@ function App() {
             </ProtectedRoute>
           }>
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
+            
+            {/* Dashboard */}
             <Route path="dashboard" element={
               <Suspense fallback={<LoadingScreen />}>
                 <AdminDashboard />
               </Suspense>
             } />
+            
+            {/* Properties Management */}
+            <Route path="properties" element={
+              <Suspense fallback={<LoadingScreen />}>
+                <Properties />
+              </Suspense>
+            } />
+            
+            <Route path="properties/:propertyId/edit" element={
+              <Suspense fallback={<LoadingScreen />}>
+                <EditProperty />
+              </Suspense>
+            } />
+            
+            {/* Add Property */}
             <Route path="add-property" element={
               <Suspense fallback={<LoadingScreen />}>
                 <AddProperty />
               </Suspense>
             } />
-            <Route path="properties" element={
+
+            {/* Bookings */}
+            <Route path="bookings" element={
               <Suspense fallback={<LoadingScreen />}>
-                <div className="text-center py-20">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    Список объектов
-                  </h2>
-                  <p className="text-gray-600 dark:text-gray-400 mt-2">
-                    В разработке...
-                  </p>
-                </div>
+                <Bookings />
               </Suspense>
             } />
+            
+            {/* Settings */}
             <Route path="settings" element={
               <Suspense fallback={<LoadingScreen />}>
                 <div className="text-center py-20">
@@ -138,6 +152,29 @@ function App() {
               </Suspense>
             } />
           </Route>
+
+          {/* 404 Route */}
+          <Route path="*" element={
+            <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+              <div className="text-center">
+                <h1 className="text-9xl font-bold text-red-500">404</h1>
+                <h2 className="text-3xl font-bold text-gray-900 dark:text-white mt-4">
+                  Страница не найдена
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mt-2 mb-8">
+                  Запрашиваемая страница не существует
+                </p>
+                <button
+                  onClick={() => window.location.href = '/'}
+                  className="px-8 py-3 bg-gradient-to-r from-red-500 to-red-600 
+                           hover:from-red-600 hover:to-red-700 text-white rounded-lg
+                           font-semibold transition-all shadow-lg hover:shadow-xl"
+                >
+                  Вернуться на главную
+                </button>
+              </div>
+            </div>
+          } />
         </Routes>
       </AnimatePresence>
       

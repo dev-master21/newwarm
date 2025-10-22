@@ -11,6 +11,46 @@ class PropertyApi {
   }
 
   /**
+   * Получение списка объектов
+   */
+  async getProperties(params = {}) {
+    const response = await axios.get('/admin/properties', { params })
+    return response.data
+  }
+
+  /**
+   * Получение деталей объекта
+   */
+  async getPropertyDetails(propertyId) {
+    const response = await axios.get(`/admin/properties/${propertyId}`)
+    return response.data
+  }
+
+  /**
+   * Обновление объекта
+   */
+  async updateProperty(propertyId, propertyData) {
+    const response = await axios.put(`/admin/properties/${propertyId}`, propertyData)
+    return response.data
+  }
+
+  /**
+   * Мягкое удаление объекта
+   */
+  async deleteProperty(propertyId) {
+    const response = await axios.delete(`/admin/properties/${propertyId}`)
+    return response.data
+  }
+
+  /**
+   * Изменение видимости объекта
+   */
+  async toggleVisibility(propertyId, status) {
+    const response = await axios.patch(`/admin/properties/${propertyId}/visibility`, { status })
+    return response.data
+  }
+
+  /**
    * Загрузка фотографий
    */
   async uploadPhotos(propertyId, files, category = '') {
@@ -72,38 +112,6 @@ class PropertyApi {
     const response = await axios.post('/admin/calendar/validate', {
       icsUrl
     })
-    return response.data
-  }
-
-  /**
-   * Получение списка объектов
-   */
-  async getProperties(params = {}) {
-    const response = await axios.get('/admin/properties', { params })
-    return response.data
-  }
-
-  /**
-   * Получение деталей объекта
-   */
-  async getPropertyDetails(propertyId) {
-    const response = await axios.get(`/admin/properties/${propertyId}`)
-    return response.data
-  }
-
-  /**
-   * Обновление объекта
-   */
-  async updateProperty(propertyId, propertyData) {
-    const response = await axios.put(`/admin/properties/${propertyId}`, propertyData)
-    return response.data
-  }
-
-  /**
-   * Удаление объекта
-   */
-  async deleteProperty(propertyId) {
-    const response = await axios.delete(`/admin/properties/${propertyId}`)
     return response.data
   }
 }

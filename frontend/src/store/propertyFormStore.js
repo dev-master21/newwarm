@@ -63,6 +63,8 @@ export const usePropertyFormStore = create((set, get) => ({
       zh: ''
     },
     photos: [],
+    uploadMethod: 'withCategories',
+    categories: [],
     photosByCategory: {
       bedroom: [],
       bathroom: [],
@@ -139,8 +141,8 @@ export const usePropertyFormStore = create((set, get) => ({
         break
 
       case 5:
-        if (!formData.constructionYear) errors.constructionYear = 'required'
-        if (!formData.constructionMonth) errors.constructionMonth = 'required'
+        // if (!formData.constructionYear) errors.constructionYear = 'required'
+        // if (!formData.constructionMonth) errors.constructionMonth = 'required'
         if (!formData.furnitureStatus) errors.furnitureStatus = 'required'
         if (!formData.petsAllowed) errors.petsAllowed = 'required'
         break
@@ -164,9 +166,13 @@ export const usePropertyFormStore = create((set, get) => ({
         break
 
       case 8:
-        // Check if at least one language has name and description
-        const hasName = Object.values(formData.propertyName).some(name => name && name.trim() !== '')
-        const hasDescription = Object.values(formData.description).some(desc => desc && desc.trim() !== '')
+        // ИСПРАВЛЕНО: Проверка что заполнено название хотя бы на одном языке
+        const hasName = formData.propertyName && 
+          Object.values(formData.propertyName).some(name => name && name.trim() !== '')
+        
+        // ИСПРАВЛЕНО: Проверка что заполнено описание хотя бы на одном языке
+        const hasDescription = formData.description && 
+          Object.values(formData.description).some(desc => desc && desc.trim() !== '')
         
         if (!hasName) {
           errors.propertyName = 'required'
@@ -175,11 +181,9 @@ export const usePropertyFormStore = create((set, get) => ({
           errors.description = 'required'
         }
         
-        // Check total number of photos across all categories
-        const totalPhotos = Object.values(formData.photosByCategory).reduce(
-          (total, categoryPhotos) => total + categoryPhotos.length, 
-          0
-        )
+        // ИСПРАВЛЕНО: Проверка общего количества фотографий из formData.photos
+        // Теперь считаем все фотографии независимо от категории
+        const totalPhotos = (formData.photos || []).length
         
         if (totalPhotos < 5) {
           errors.photos = 'minimum5photos'
@@ -245,6 +249,8 @@ export const usePropertyFormStore = create((set, get) => ({
       propertyName: { ru: '', en: '', th: '', zh: '' },
       description: { ru: '', en: '', th: '', zh: '' },
       photos: [],
+      uploadMethod: 'withCategories',
+      categories: [],
       photosByCategory: {
         bedroom: [],
         bathroom: [],

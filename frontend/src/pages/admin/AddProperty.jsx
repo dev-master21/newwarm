@@ -5,9 +5,9 @@ import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import { HiArrowLeft, HiArrowRight, HiCheckCircle } from 'react-icons/hi'
 import { usePropertyFormStore } from '../../store/propertyFormStore'
+import propertyApi from '../../api/propertyApi'
 import ProgressBar from '../../components/admin/ProgressBar'
 import toast from 'react-hot-toast'
-import axios from 'axios'
 
 // Import all steps
 import Step1DealType from '../../components/admin/propertyForm/Step1DealType'
@@ -45,7 +45,6 @@ const AddProperty = () => {
     if (!isValid) {
       toast.error(t('admin.addProperty.validation.fillAllRequired'))
       
-      // Trigger field validation animation
       setTimeout(() => {
         const invalidFields = document.querySelectorAll('.border-red-500')
         invalidFields.forEach((field, index) => {
@@ -78,20 +77,30 @@ const AddProperty = () => {
     try {
       const loadingToast = toast.loading(t('admin.addProperty.submitting'))
       
-      // Prepare data for submission
+      const furnitureStatusMap = {
+        'fullyFurnished': 'fully',
+        'partiallyFurnished': 'partially',
+        'unfurnished': 'unfurnished',
+        'negotiable': 'negotiable'
+      }
+
+      const petsAllowedMap = {
+        'petsYes': 'allowed',
+        'petsNo': 'not_allowed',
+        'petsNegotiable': 'negotiable'
+      }
+      
       const propertyData = {
-        // Basic Info
         dealType: formData.dealType,
         propertyType: formData.propertyType,
         
-        // Location
         region: formData.region,
         address: formData.address,
         googleMapsLink: formData.googleMapsLink,
-        coordinates: formData.coordinates,
+        latitude: formData.coordinates?.lat || null,
+        longitude: formData.coordinates?.lng || null,
         propertyNumber: formData.propertyNumber,
         
-        // Specifications
         bedrooms: parseInt(formData.bedrooms),
         bathrooms: parseFloat(formData.bathrooms),
         indoorArea: parseFloat(formData.indoorArea),
@@ -101,75 +110,119 @@ const AddProperty = () => {
         floor: formData.floor ? parseInt(formData.floor) : null,
         penthouseFloors: formData.penthouseFloors ? parseInt(formData.penthouseFloors) : null,
         
-        // Additional Info
         constructionYear: parseInt(formData.constructionYear),
         constructionMonth: parseInt(formData.constructionMonth),
-        furnitureStatus: formData.furnitureStatus,
-        parkingSpaces: formData.parkingSpaces ? parseInt(formData.parkingSpaces) : 0,
-        petsAllowed: formData.petsAllowed,
+        furnitureStatus: furnitureStatusMap[formData.furnitureStatus] || formData.furnitureStatus,
+        // ✅ ИСПРАВЛЕНО: NULL вместо 0
+        parkingSpaces: formData.parkingSpaces ? parseInt(formData.parkingSpaces) : null,
+        petsAllowed: petsAllowedMap[formData.petsAllowed] || formData.petsAllowed,
         petsCustom: formData.petsCustom || null,
         
-        // Ownership
         buildingOwnership: formData.buildingOwnership || null,
         landOwnership: formData.landOwnership || null,
         ownershipType: formData.ownershipType || null,
         
-        // Features (combined)
-        features: [
-          ...(formData.propertyFeatures || []),
-          ...(formData.outdoorFeatures || []),
-          ...(formData.rentalFeatures || []),
-          ...(formData.locationFeatures || []),
-          ...(formData.views || [])
-        ],
+        propertyFeatures: formData.propertyFeatures || [],
+        outdoorFeatures: formData.outdoorFeatures || [],
+        rentalFeatures: formData.rentalFeatures || [],
+        locationFeatures: formData.locationFeatures || [],
+        views: formData.views || [],
         renovationDates: formData.renovationDates || {},
         
-        // Description & Photos
-        propertyName: formData.propertyName,
-        description: formData.description,
-        photos: formData.photos || [],
-        floorPlan: formData.floorPlan || null,
+        propertyName: formData.propertyName || {},
+        description: formData.description || {},
         
-        // Pricing
         salePrice: formData.salePrice ? parseFloat(formData.salePrice) : null,
         minimumNights: formData.minimumNights ? parseInt(formData.minimumNights) : null,
-        seasonalPricing: formData.seasonalPricing || [],
+        // ✅ ИСПРАВЛЕНО: преобразуем цены в числа
+        seasonalPricing: (formData.seasonalPricing || []).map(period => ({
+          startDate: period.startDate,
+          endDate: period.endDate,
+          pricePerNight: parseFloat(period.pricePerNight)
+        })),
         
-        // Calendar
-        icsCalendarUrl: formData.icsCalendarUrl || null
+        icsCalendarUrl: formData.icsCalendarUrl || null,
+        
+        status: 'published'
       }
 
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/properties`,
-        propertyData,
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
-            'Content-Type': 'application/json'
+      console.log('📤 Отправка данных на сервер:', propertyData)
+
+      const response = await propertyApi.createProperty(propertyData)
+
+      console.log('✅ Ответ от сервера:', response)
+
+      if (response.success) {
+        const propertyId = response.data.propertyId
+        
+        console.log(`🆔 ID созданного объекта: ${propertyId}`)
+        
+        // ✅ ИСПРАВЛЕНО: Загрузка фотографий с категориями
+        if (formData.photos && formData.photos.length > 0) {
+          console.log(`📸 Загрузка ${formData.photos.length} фотографий...`)
+          
+          // Группируем фото по категориям
+          const photosByCategory = {}
+          formData.photos.forEach(photo => {
+            if (photo && photo.file) {
+              const category = photo.category || 'general'
+              if (!photosByCategory[category]) {
+                photosByCategory[category] = []
+              }
+              photosByCategory[category].push(photo.file)
+            }
+          })
+          
+          // Загружаем фото по категориям
+          for (const [category, files] of Object.entries(photosByCategory)) {
+            try {
+              await propertyApi.uploadPhotos(propertyId, files, category)
+              console.log(`✅ Загружено ${files.length} фото в категорию "${category}"`)
+            } catch (photoError) {
+              console.error(`❌ Ошибка загрузки фото (${category}):`, photoError)
+            }
+          }
+          
+          toast.success(`${formData.photos.length} фотографий загружено`)
+        } else {
+          console.log('ℹ️ Нет фотографий для загрузки')
+        }
+        
+        // Загружаем планировку
+        if (formData.floorPlan && formData.floorPlan.file) {
+          console.log('📋 Загрузка планировки...')
+          try {
+            await propertyApi.uploadFloorPlan(propertyId, formData.floorPlan.file)
+            console.log('✅ Планировка загружена')
+          } catch (floorPlanError) {
+            console.error('❌ Ошибка загрузки планировки:', floorPlanError)
           }
         }
-      )
-
-      toast.dismiss(loadingToast)
-
-      if (response.data.success) {
+        
+        toast.dismiss(loadingToast)
+        
         toast.success(t('admin.addProperty.success'), {
           duration: 4000,
           icon: '🎉'
         })
         
-        // Reset form
+        console.log('✅ Объект успешно создан!')
+        
         resetForm()
         
-        // Navigate to properties list after a short delay
         setTimeout(() => {
           navigate('/admin/properties')
         }, 1500)
       }
     } catch (error) {
-      console.error('Error submitting property:', error)
+      console.error('❌ Ошибка при создании объекта:', error)
+      console.error('Детали ошибки:', error.response?.data)
       
-      const errorMessage = error.response?.data?.message || t('admin.addProperty.error')
+      toast.dismiss()
+      
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          t('admin.addProperty.error')
       toast.error(errorMessage, {
         duration: 5000
       })
@@ -194,7 +247,6 @@ const AddProperty = () => {
 
   return (
     <div className="max-w-5xl mx-auto">
-      {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
           {t('admin.addProperty.title')}
@@ -204,10 +256,8 @@ const AddProperty = () => {
         </p>
       </div>
 
-      {/* Progress Bar */}
       <ProgressBar currentStep={currentStep} totalSteps={totalSteps} />
 
-      {/* Step Content */}
       <AnimatePresence mode="wait">
         <motion.div
           key={currentStep}
@@ -221,7 +271,6 @@ const AddProperty = () => {
         </motion.div>
       </AnimatePresence>
 
-      {/* Navigation Buttons */}
       <div className="flex items-center justify-between mt-8 gap-4">
         <button
           onClick={handlePrevious}

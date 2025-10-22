@@ -1,4 +1,4 @@
-// frontend/src/layouts/AdminLayout.jsx
+// frontend/src/components/admin/AdminLayout.jsx
 import React, { useState } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'

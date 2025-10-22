@@ -1,7 +1,7 @@
 // frontend/src/components/admin/propertyForm/Step7Features.jsx
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { 
   HiFilm, 
   HiFire, 
@@ -49,12 +49,16 @@ const Step7Features = () => {
   }
 
   const handleRenovationDateChange = (feature, date) => {
-    updateFormData({
-      renovationDates: {
-        ...formData.renovationDates,
-        [feature]: date
-      }
-    })
+    try {
+      updateFormData({
+        renovationDates: {
+          ...formData.renovationDates,
+          [feature]: date
+        }
+      })
+    } catch (error) {
+      console.error('Error updating renovation date:', error)
+    }
   }
 
   const propertyFeatures = [
@@ -129,7 +133,11 @@ const Step7Features = () => {
       <div>
         <motion.button
           type="button"
-          onClick={() => handleFeatureToggle(category, feature.value)}
+          onClick={(e) => {
+            // ✅ ИСПРАВЛЕНО: Предотвращаем прокрутку
+            e.preventDefault()
+            handleFeatureToggle(category, feature.value)
+          }}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           className={`w-full flex items-center space-x-3 p-3 rounded-lg border-2 
@@ -164,25 +172,31 @@ const Step7Features = () => {
           )}
         </motion.button>
         
-        {/* Renovation Date Input */}
-        {feature.hasDate && isSelected && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="mt-2 ml-11"
-          >
-            <input
-              type="text"
-              value={formData.renovationDates?.[feature.value] || ''}
-              onChange={(e) => handleRenovationDateChange(feature.value, e.target.value)}
-              placeholder={t('admin.addProperty.step7.renovationDatePlaceholder')}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 
-                       rounded-lg focus:ring-2 focus:ring-[#DC2626] focus:border-transparent
-                       bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-            />
-          </motion.div>
-        )}
+        {/* ✅ ИСПРАВЛЕНО: Renovation Date Input с AnimatePresence */}
+        <AnimatePresence>
+          {feature.hasDate && isSelected && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="mt-2 ml-11"
+            >
+              <input
+                type="month"
+                value={formData.renovationDates?.[feature.value] || ''}
+                onChange={(e) => {
+                  e.stopPropagation()
+                  handleRenovationDateChange(feature.value, e.target.value)
+                }}
+                placeholder={t('admin.addProperty.step7.renovationDatePlaceholder') || 'YYYY-MM'}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 
+                         rounded-lg focus:ring-2 focus:ring-[#DC2626] focus:border-transparent
+                         bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     )
   }
@@ -308,7 +322,11 @@ const Step7Features = () => {
               <motion.button
                 key={view.value}
                 type="button"
-                onClick={() => handleFeatureToggle('views', view.value)}
+                onClick={(e) => {
+                  // ✅ ИСПРАВЛЕНО: Предотвращаем прокрутку
+                  e.preventDefault()
+                  handleFeatureToggle('views', view.value)
+                }}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 className={`p-3 rounded-lg border-2 text-sm font-medium transition-all text-left ${
