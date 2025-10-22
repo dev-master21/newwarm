@@ -1,13 +1,262 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
   <head>
+    <!-- Основные мета-теги -->
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    
+    <!-- SEO мета-теги -->
+    <title>WARM+ Luxury Villas Phuket | Premium Villa Rentals in Thailand</title>
+    <meta name="description" content="Discover luxury villa rentals in Phuket with WARM+. Premium beachfront villas, exceptional service, and unforgettable experiences. Book your dream villa today!" />
+    <meta name="keywords" content="luxury villas phuket, villa rental thailand, beachfront villas, premium accommodation phuket, holiday villas, WARM+ villas" />
+    <meta name="author" content="WARM+ Luxury Villas" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow" />
+    <meta name="generator" content="React 18.2" />
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://warmphuket.com/" />
+    
+    <!-- Языковые альтернативы -->
+    <link rel="alternate" hreflang="en" href="https://warmphuket.com/en" />
+    <link rel="alternate" hreflang="ru" href="https://warmphuket.com/ru" />
+    <link rel="alternate" hreflang="th" href="https://warmphuket.com/th" />
+    <link rel="alternate" hreflang="fr" href="https://warmphuket.com/fr" />
+    <link rel="alternate" hreflang="es" href="https://warmphuket.com/es" />
+    <link rel="alternate" hreflang="x-default" href="https://warmphuket.com/" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://warmphuket.com/" />
+    <meta property="og:title" content="WARM+ Luxury Villas Phuket | Premium Villa Rentals" />
+    <meta property="og:description" content="Discover luxury villa rentals in Phuket. Premium beachfront villas with exceptional service. Book your dream vacation today!" />
+    <meta property="og:image" content="https://warmphuket.com/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:site_name" content="WARM+ Luxury Villas" />
+    <meta property="og:locale" content="en_US" />
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://warmphuket.com/" />
+    <meta name="twitter:title" content="WARM+ Luxury Villas Phuket | Premium Villa Rentals" />
+    <meta name="twitter:description" content="Discover luxury villa rentals in Phuket. Premium beachfront villas with exceptional service." />
+    <meta name="twitter:image" content="https://warmphuket.com/twitter-image.jpg" />
+    <meta name="twitter:site" content="@warmplusvillas" />
+    <meta name="twitter:creator" content="@warmplusvillas" />
+    
+    <!-- Favicon и иконки -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#dc2626" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="msapplication-TileColor" content="#dc2626" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
+    <meta name="theme-color" content="#ffffff" />
+    
+    <!-- Дополнительные мета-теги -->
+    <meta name="format-detection" content="telephone=yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="WARM+ Villas" />
+    <meta name="application-name" content="WARM+ Villas" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    
+    <!-- Geo теги -->
+    <meta name="geo.region" content="TH-83" />
+    <meta name="geo.placename" content="Phuket" />
+    <meta name="geo.position" content="7.8804;98.3923" />
+    <meta name="ICBM" content="7.8804, 98.3923" />
+    
+    <!-- Бизнес информация -->
+    <meta name="business:contact_data:street_address" content="123 Beach Road" />
+    <meta name="business:contact_data:locality" content="Phuket" />
+    <meta name="business:contact_data:country_name" content="Thailand" />
+    <meta name="business:contact_data:postal_code" content="83000" />
+    <meta name="business:contact_data:email" content="info@warmphuket.com" />
+    <meta name="business:contact_data:phone_number" content="+66123456789" />
+    <meta name="business:contact_data:website" content="https://warmphuket.com" />
+    
+    <!-- Предзагрузка шрифтов -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" as="style" />
+    
+    <!-- DNS предзагрузка -->
+    <link rel="dns-prefetch" href="https://www.google-analytics.com" />
+    <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+    
+    <!-- Структурированные данные Schema.org -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "LodgingBusiness",
+      "name": "WARM+ Luxury Villas",
+      "description": "Premium luxury villa rentals in Phuket, Thailand",
+      "url": "https://warmphuket.com",
+      "logo": "https://warmphuket.com/logo.png",
+      "image": [
+        "https://warmphuket.com/villa1.jpg",
+        "https://warmphuket.com/villa2.jpg",
+        "https://warmphuket.com/villa3.jpg"
+      ],
+      "priceRange": "$$$$",
+      "servesCuisine": "International",
+      "telephone": "+66123456789",
+      "email": "info@warmphuket.com",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "123 Beach Road",
+        "addressLocality": "Phuket",
+        "addressRegion": "Phuket",
+        "postalCode": "83000",
+        "addressCountry": "TH"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": 7.8804,
+        "longitude": 98.3923
+      },
+      "openingHoursSpecification": {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+          "Sunday"
+        ],
+        "opens": "00:00",
+        "closes": "23:59"
+      },
+      "sameAs": [
+        "https://www.facebook.com/warmplusvillas",
+        "https://www.instagram.com/warmplusvillas",
+        "https://twitter.com/warmplusvillas",
+        "https://www.youtube.com/warmplusvillas"
+      ],
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.9",
+        "reviewCount": "324",
+        "bestRating": "5",
+        "worstRating": "1"
+      },
+      "amenityFeature": [
+        {
+          "@type": "LocationFeatureSpecification",
+          "name": "Private Pool"
+        },
+        {
+          "@type": "LocationFeatureSpecification",
+          "name": "Beach Access"
+        },
+        {
+          "@type": "LocationFeatureSpecification",
+          "name": "WiFi"
+        },
+        {
+          "@type": "LocationFeatureSpecification",
+          "name": "Air Conditioning"
+        },
+        {
+          "@type": "LocationFeatureSpecification",
+          "name": "Parking"
+        }
+      ]
+    }
+    </script>
+    
+    <!-- BreadcrumbList Schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://warmphuket.com"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Villas",
+          "item": "https://warmphuket.com/villas"
+        }
+      ]
+    }
+    </script>
+    
+    <!-- Organization Schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "WARM+ Luxury Villas",
+      "alternateName": "WARM Plus Villas",
+      "url": "https://warmphuket.com",
+      "logo": "https://warmphuket.com/logo.png",
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "telephone": "+66123456789",
+        "contactType": "customer service",
+        "areaServed": ["TH", "US", "GB", "RU", "CN", "AU", "FR", "DE"],
+        "availableLanguage": ["English", "Russian", "Thai", "French", "Spanish"]
+      }
+    }
+    </script>
+    
+    <!-- Website Schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "url": "https://warmphuket.com",
+      "name": "WARM+ Luxury Villas",
+      "description": "Premium luxury villa rentals in Phuket, Thailand",
+      "publisher": {
+        "@type": "Organization",
+        "name": "WARM+ Luxury Villas"
+      },
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://warmphuket.com/search?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
   </head>
   <body>
+    <!-- Noscript fallback -->
+    <noscript>
+      <div style="padding: 20px; background: #dc2626; color: white; text-align: center;">
+        <p>JavaScript is required to run this application. Please enable JavaScript in your browser settings.</p>
+      </div>
+    </noscript>
+    
+    <!-- React Root -->
     <div id="root"></div>
+    
+    <!-- Module Script -->
     <script type="module" src="/src/main.jsx"></script>
+    
+    <!-- Google Analytics (добавьте ваш ID) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=GA_MEASUREMENT_ID"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'GA_MEASUREMENT_ID');
+    </script>
   </body>
 </html>

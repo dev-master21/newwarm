@@ -1,3 +1,4 @@
+// frontend/tailwind.config.js
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -8,7 +9,6 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Красная цветовая схема вместо синей
         primary: {
           50: '#fef2f2',
           100: '#fee2e2',
@@ -21,7 +21,6 @@ export default {
           800: '#991b1b',
           900: '#7f1d1d',
         },
-        // Дополнительная розовая палитра
         secondary: {
           50: '#fdf2f8',
           100: '#fce7f3',
@@ -38,7 +37,6 @@ export default {
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
       },
-      // Убираем max-width у контейнера по умолчанию
       container: {
         center: true,
         padding: '1rem',
@@ -47,6 +45,17 @@ export default {
           md: '100%',
           lg: '1024px',
           xl: '1280px',
+        }
+      },
+      animation: {
+        'shake': 'shake 0.5s ease-in-out',
+        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+      },
+      keyframes: {
+        shake: {
+          '0%, 100%': { transform: 'translateX(0)' },
+          '10%, 30%, 50%, 70%, 90%': { transform: 'translateX(-5px)' },
+          '20%, 40%, 60%, 80%': { transform: 'translateX(5px)' },
         }
       }
     },
