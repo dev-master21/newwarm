@@ -1,11 +1,11 @@
+// backend/src/config/database.ts
 import mysql from 'mysql2/promise';
 import { config } from './config';
 
 class Database {
-  private static instance: Database;
   private pool: mysql.Pool;
 
-  private constructor() {
+  constructor() {
     this.pool = mysql.createPool({
       host: config.db.host,
       port: config.db.port,
@@ -16,48 +16,64 @@ class Database {
       connectionLimit: 10,
       queueLimit: 0,
       enableKeepAlive: true,
-      keepAliveInitialDelay: 0,
-      namedPlaceholders: true,
-      multipleStatements: true,
-      timezone: '+00:00',
-      dateStrings: false,
-      typeCast: function (field: any, next: any) {
-        if (field.type === 'TINY' && field.length === 1) {
-          return field.string() === '1';
-        }
-        if (field.type === 'JSON') {
-          return JSON.parse(field.string());
-        }
-        return next();
-      }
+      keepAliveInitialDelay: 0
     });
+
+    this.testConnection();
   }
 
-  public static getInstance(): Database {
-    if (!Database.instance) {
-      Database.instance = new Database();
+  /**
+   * Выполнение запроса
+   */
+  async query(sql: string, params?: any[]): Promise<any> {
+    try {
+      const [results] = await this.pool.execute(sql, params);
+      return results;
+    } catch (error) {
+      console.error('Database query error:', error);
+      throw error;
     }
-    return Database.instance;
   }
 
-  public getPool(): mysql.Pool {
+  /**
+   * Выполнение запроса с возвратом одной строки
+   */
+  async queryOne(sql: string, params?: any[]): Promise<any> {
+    try {
+      const [results] = await this.pool.execute(sql, params);
+      const rows = results as any[];
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('Database queryOne error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Получение пула соединений
+   */
+  getPool(): mysql.Pool {
     return this.pool;
   }
 
-  public async query<T = any>(sql: string, params?: any): Promise<T> {
-    const [results] = await this.pool.execute(sql, params);
-    return results as T;
+  /**
+   * Получение соединения из пула
+   */
+  async getConnection(): Promise<mysql.PoolConnection> {
+    try {
+      return await this.pool.getConnection();
+    } catch (error) {
+      console.error('Error getting connection:', error);
+      throw error;
+    }
   }
 
-  public async queryOne<T = any>(sql: string, params?: any): Promise<T | null> {
-    const results = await this.query<T[]>(sql, params);
-    return results.length > 0 ? results[0] : null;
-  }
-
-  public async transaction<T = any>(
-    callback: (connection: mysql.PoolConnection) => Promise<T>
-  ): Promise<T> {
-    const connection = await this.pool.getConnection();
+  /**
+   * Выполнение транзакции
+   */
+  async transaction(callback: (connection: mysql.PoolConnection) => Promise<any>): Promise<any> {
+    const connection = await this.getConnection();
+    
     try {
       await connection.beginTransaction();
       const result = await callback(connection);
@@ -71,20 +87,34 @@ class Database {
     }
   }
 
-  public async testConnection(): Promise<boolean> {
+  /**
+   * Проверка подключения к БД
+   */
+  async testConnection(): Promise<boolean> {
     try {
-      await this.pool.execute('SELECT 1');
+      const connection = await this.pool.getConnection();
+      await connection.ping();
+      connection.release();
+      console.log('✅ Database connected successfully');
       return true;
     } catch (error) {
-      console.error('Database connection failed:', error);
+      console.error('❌ Database connection failed:', error);
       return false;
     }
   }
 
-  public async close(): Promise<void> {
-    await this.pool.end();
+  /**
+   * Закрытие пула соединений
+   */
+  async close(): Promise<void> {
+    try {
+      await this.pool.end();
+      console.log('Database pool closed');
+    } catch (error) {
+      console.error('Error closing database pool:', error);
+      throw error;
+    }
   }
 }
 
-export const db = Database.getInstance();
-export default db;
+export default new Database();
