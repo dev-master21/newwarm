@@ -51,15 +51,95 @@ const EditProperty = () => {
       const response = await propertyApi.getPropertyDetails(propertyId)
       
       if (response.success) {
-        console.log('Loaded property data:', response.data)
+        console.log('📥 Loaded property data:', response.data)
+        
+        const property = response.data.property
+        
+        // ИСПРАВЛЕНО: Преобразуем translations из объекта в массив
+        const translationsArray = []
+        if (property.translations && typeof property.translations === 'object') {
+          Object.keys(property.translations).forEach(langCode => {
+            translationsArray.push({
+              language_code: langCode,
+              property_name: property.translations[langCode].propertyName || '',
+              description: property.translations[langCode].description || ''
+            })
+          })
+        }
+        
+        // ИСПРАВЛЕНО: Собираем все features в один массив с правильной структурой
+        const featuresArray = []
+        
+        // Property features
+        if (property.propertyFeatures && Array.isArray(property.propertyFeatures)) {
+          property.propertyFeatures.forEach(feature => {
+            featuresArray.push({
+              feature_type: 'property',
+              feature_value: feature,
+              renovation_date: property.renovationDates?.[feature] || null
+            })
+          })
+        }
+        
+        // Outdoor features
+        if (property.outdoorFeatures && Array.isArray(property.outdoorFeatures)) {
+          property.outdoorFeatures.forEach(feature => {
+            featuresArray.push({
+              feature_type: 'outdoor',
+              feature_value: feature,
+              renovation_date: property.renovationDates?.[feature] || null
+            })
+          })
+        }
+        
+        // Rental features
+        if (property.rentalFeatures && Array.isArray(property.rentalFeatures)) {
+          property.rentalFeatures.forEach(feature => {
+            featuresArray.push({
+              feature_type: 'rental',
+              feature_value: feature,
+              renovation_date: property.renovationDates?.[feature] || null
+            })
+          })
+        }
+        
+        // Location features
+        if (property.locationFeatures && Array.isArray(property.locationFeatures)) {
+          property.locationFeatures.forEach(feature => {
+            featuresArray.push({
+              feature_type: 'location',
+              feature_value: feature,
+              renovation_date: property.renovationDates?.[feature] || null
+            })
+          })
+        }
+        
+        // Views
+        if (property.views && Array.isArray(property.views)) {
+          property.views.forEach(feature => {
+            featuresArray.push({
+              feature_type: 'view',
+              feature_value: feature,
+              renovation_date: property.renovationDates?.[feature] || null
+            })
+          })
+        }
         
         const data = {
-          ...response.data.property,
-          translations: response.data.translations || [],
-          photos: response.data.photos || [],
-          features: response.data.features || [],
-          pricing: response.data.pricing || []
+          ...property,
+          translations: translationsArray,
+          photos: property.photos || [],
+          features: featuresArray,
+          // ИСПРАВЛЕНО: используем seasonalPricing вместо pricing
+          pricing: property.seasonalPricing || []
         }
+        
+        console.log('✅ Processed data:', {
+          translations: data.translations.length,
+          features: data.features.length,
+          pricing: data.pricing.length,
+          photos: data.photos.length
+        })
         
         setPropertyData(data)
         setOriginalData(JSON.parse(JSON.stringify(data)))
@@ -150,328 +230,122 @@ const EditProperty = () => {
 
       await propertyApi.updateProperty(propertyId, updateData)
       
-      toast.success(t('admin.editProperty.saved'))
+      toast.success(t('admin.editProperty.saveSuccess'))
       setOriginalData(JSON.parse(JSON.stringify(propertyData)))
       setHasChanges(false)
     } catch (error) {
       console.error('Failed to save property:', error)
-      toast.error(t('admin.editProperty.error'))
+      toast.error(t('admin.editProperty.saveError'))
     } finally {
       setSaving(false)
     }
   }
 
-  // Определение всех полей для редактирования
-  const editableFields = useMemo(() => {
-    if (!propertyData) return []
+  // Группировка полей
+  const fieldGroups = useMemo(() => [
+    {
+      title: t('admin.editProperty.sections.basic'),
+      icon: HiHome,
+      color: 'blue',
+      fields: [
+        { key: 'deal_type', label: t('admin.editProperty.fields.dealType'), type: 'select', 
+          options: ['sale', 'rent', 'both'] },
+        { key: 'property_type', label: t('admin.editProperty.fields.propertyType'), type: 'select',
+          options: ['villa', 'apartment', 'house', 'condo', 'land', 'commercial'] },
+        { key: 'property_number', label: t('admin.editProperty.fields.propertyNumber'), type: 'text' },
+        { key: 'status', label: t('admin.editProperty.fields.status'), type: 'select',
+          options: ['draft', 'published', 'sold', 'rented'] }
+      ]
+    },
+    {
+      title: t('admin.editProperty.sections.location'),
+      icon: HiLocationMarker,
+      color: 'green',
+      fields: [
+        { key: 'region', label: t('admin.editProperty.fields.region'), type: 'text' },
+        { key: 'address', label: t('admin.editProperty.fields.address'), type: 'text' },
+        { key: 'google_maps_link', label: t('admin.editProperty.fields.googleMapsLink'), type: 'text' },
+        { key: 'latitude', label: t('admin.editProperty.fields.latitude'), type: 'number', step: '0.000001' },
+        { key: 'longitude', label: t('admin.editProperty.fields.longitude'), type: 'number', step: '0.000001' }
+      ]
+    },
+    {
+      title: t('admin.editProperty.sections.specifications'),
+      icon: HiCube,
+      color: 'purple',
+      fields: [
+        { key: 'bedrooms', label: t('admin.editProperty.fields.bedrooms'), type: 'number', min: 0 },
+        { key: 'bathrooms', label: t('admin.editProperty.fields.bathrooms'), type: 'number', min: 0 },
+        { key: 'indoor_area', label: t('admin.editProperty.fields.indoorArea'), type: 'number', min: 0 },
+        { key: 'outdoor_area', label: t('admin.editProperty.fields.outdoorArea'), type: 'number', min: 0 },
+        { key: 'plot_size', label: t('admin.editProperty.fields.plotSize'), type: 'number', min: 0 },
+        { key: 'floors', label: t('admin.editProperty.fields.floors'), type: 'number', min: 0 },
+        { key: 'floor', label: t('admin.editProperty.fields.floor'), type: 'number', min: 0 }
+      ]
+    },
+    {
+      title: t('admin.editProperty.sections.additional'),
+      icon: HiClipboardList,
+      color: 'orange',
+      fields: [
+        { key: 'construction_year', label: t('admin.editProperty.fields.constructionYear'), type: 'number', min: 1900, max: new Date().getFullYear() },
+        { key: 'construction_month', label: t('admin.editProperty.fields.constructionMonth'), type: 'number', min: 1, max: 12 },
+        { key: 'furniture_status', label: t('admin.editProperty.fields.furnitureStatus'), type: 'select',
+          options: ['fullyFurnished', 'unfurnished', 'partiallyFurnished'] },
+        { key: 'parking_spaces', label: t('admin.editProperty.fields.parkingSpaces'), type: 'number', min: 0 }
+      ]
+    },
+    {
+      title: t('admin.editProperty.sections.ownership'),
+      icon: HiShieldCheck,
+      color: 'red',
+      fields: [
+        { key: 'building_ownership', label: t('admin.editProperty.fields.buildingOwnership'), type: 'select',
+          options: ['freehold', 'leasehold', 'cooperative'] },
+        { key: 'land_ownership', label: t('admin.editProperty.fields.landOwnership'), type: 'select',
+          options: ['freehold', 'leasehold', 'cooperative'] },
+        { key: 'ownership_type', label: t('admin.editProperty.fields.ownershipType'), type: 'select',
+          options: ['individual', 'company', 'foundation'] }
+      ]
+    },
+    {
+      title: t('admin.editProperty.sections.pricing'),
+      icon: HiCash,
+      color: 'emerald',
+      fields: [
+        { key: 'sale_price', label: t('admin.editProperty.fields.salePrice'), type: 'number', min: 0 },
+        { key: 'minimum_nights', label: t('admin.editProperty.fields.minimumNights'), type: 'number', min: 1 }
+      ]
+    },
+    {
+      title: t('admin.editProperty.sections.calendar'),
+      icon: HiCalendar,
+      color: 'indigo',
+      fields: [
+        { key: 'ics_calendar_url', label: t('admin.editProperty.fields.icsCalendarUrl'), type: 'text' }
+      ]
+    }
+  ], [t])
 
-    return [
-      // Основная информация
-      {
-        section: 'basic',
-        icon: HiHome,
-        fields: [
-          {
-            key: 'deal_type',
-            label: t('admin.editProperty.fields.dealType'),
-            type: 'select',
-            options: ['sale', 'rent', 'both'].map(val => ({
-              value: val,
-              label: t(`admin.editProperty.dealTypes.${val}`)
-            })),
-            value: propertyData.deal_type
-          },
-          {
-            key: 'property_type',
-            label: t('admin.editProperty.fields.propertyType'),
-            type: 'select',
-            options: ['condo', 'apartment', 'villa', 'house', 'penthouse', 'land'].map(val => ({
-              value: val,
-              label: t(`admin.editProperty.propertyTypes.${val}`)
-            })),
-            value: propertyData.property_type
-          },
-          {
-            key: 'property_number',
-            label: t('admin.editProperty.fields.propertyNumber'),
-            type: 'text',
-            value: propertyData.property_number
-          },
-          {
-            key: 'status',
-            label: t('admin.editProperty.fields.status'),
-            type: 'select',
-            options: ['draft', 'published', 'hidden', 'archived'].map(val => ({
-              value: val,
-              label: t(`admin.editProperty.statuses.${val}`)
-            })),
-            value: propertyData.status
-          }
-        ]
-      },
-      // Местоположение
-      {
-        section: 'location',
-        icon: HiLocationMarker,
-        fields: [
-          {
-            key: 'region',
-            label: t('admin.editProperty.fields.region'),
-            type: 'select',
-            options: ['phuket', 'samui', 'pattaya', 'bangkok', 'chiangmai', 'krabi', 'huahin'].map(val => ({
-              value: val,
-              label: t(`admin.editProperty.regions.${val}`)
-            })),
-            value: propertyData.region
-          },
-          {
-            key: 'address',
-            label: t('admin.editProperty.fields.address'),
-            type: 'textarea',
-            value: propertyData.address
-          },
-          {
-            key: 'google_maps_link',
-            label: t('admin.editProperty.fields.googleMapsLink'),
-            type: 'url',
-            value: propertyData.google_maps_link
-          },
-          {
-            key: 'latitude',
-            label: t('admin.editProperty.fields.latitude'),
-            type: 'number',
-            step: 'any',
-            value: propertyData.latitude
-          },
-          {
-            key: 'longitude',
-            label: t('admin.editProperty.fields.longitude'),
-            type: 'number',
-            step: 'any',
-            value: propertyData.longitude
-          }
-        ]
-      },
-      // Характеристики
-      {
-        section: 'specifications',
-        icon: HiCube,
-        fields: [
-          {
-            key: 'bedrooms',
-            label: t('admin.editProperty.fields.bedrooms'),
-            type: 'number',
-            min: 0,
-            value: propertyData.bedrooms
-          },
-          {
-            key: 'bathrooms',
-            label: t('admin.editProperty.fields.bathrooms'),
-            type: 'number',
-            step: 0.5,
-            min: 0,
-            value: propertyData.bathrooms
-          },
-          {
-            key: 'indoor_area',
-            label: t('admin.editProperty.fields.indoorArea'),
-            type: 'number',
-            min: 0,
-            value: propertyData.indoor_area
-          },
-          {
-            key: 'outdoor_area',
-            label: t('admin.editProperty.fields.outdoorArea'),
-            type: 'number',
-            min: 0,
-            value: propertyData.outdoor_area
-          },
-          {
-            key: 'plot_size',
-            label: t('admin.editProperty.fields.plotSize'),
-            type: 'number',
-            min: 0,
-            value: propertyData.plot_size
-          },
-          {
-            key: 'floors',
-            label: t('admin.editProperty.fields.floors'),
-            type: 'number',
-            min: 1,
-            value: propertyData.floors
-          },
-          {
-            key: 'floor',
-            label: t('admin.editProperty.fields.floor'),
-            type: 'number',
-            min: 0,
-            value: propertyData.floor
-          },
-          {
-            key: 'penthouse_floors',
-            label: t('admin.editProperty.fields.penthouseFloors'),
-            type: 'number',
-            min: 1,
-            value: propertyData.penthouse_floors
-          }
-        ]
-      },
-      // Дополнительная информация
-      {
-        section: 'additional',
-        icon: HiClipboardList,
-        fields: [
-          {
-            key: 'construction_year',
-            label: t('admin.editProperty.fields.constructionYear'),
-            type: 'number',
-            min: 1900,
-            max: new Date().getFullYear() + 5,
-            value: propertyData.construction_year
-          },
-          {
-            key: 'construction_month',
-            label: t('admin.editProperty.fields.constructionMonth'),
-            type: 'number',
-            min: 1,
-            max: 12,
-            value: propertyData.construction_month
-          },
-          {
-            key: 'furniture_status',
-            label: t('admin.editProperty.fields.furnitureStatus'),
-            type: 'select',
-            options: ['fully', 'partially', 'unfurnished', 'negotiable'].map(val => ({
-              value: val,
-              label: t(`admin.editProperty.furnitureStatuses.${val}`)
-            })),
-            value: propertyData.furniture_status
-          },
-          {
-            key: 'parking_spaces',
-            label: t('admin.editProperty.fields.parkingSpaces'),
-            type: 'number',
-            min: 0,
-            value: propertyData.parking_spaces
-          },
-          {
-            key: 'pets_allowed',
-            label: t('admin.editProperty.fields.petsAllowed'),
-            type: 'select',
-            options: ['allowed', 'not_allowed', 'negotiable'].map(val => ({
-              value: val,
-              label: t(`admin.editProperty.petsOptions.${val}`)
-            })),
-            value: propertyData.pets_allowed
-          },
-          {
-            key: 'pets_custom',
-            label: t('admin.editProperty.fields.petsCustom'),
-            type: 'textarea',
-            value: propertyData.pets_custom
-          }
-        ]
-      },
-      // Собственность
-      {
-        section: 'ownership',
-        icon: HiShieldCheck,
-        fields: [
-          {
-            key: 'building_ownership',
-            label: t('admin.editProperty.fields.buildingOwnership'),
-            type: 'select',
-            options: ['freehold', 'leasehold', 'company'].map(val => ({
-              value: val,
-              label: t(`admin.editProperty.ownershipOptions.${val}`)
-            })),
-            value: propertyData.building_ownership
-          },
-          {
-            key: 'land_ownership',
-            label: t('admin.editProperty.fields.landOwnership'),
-            type: 'select',
-            options: ['freehold', 'leasehold', 'company'].map(val => ({
-              value: val,
-              label: t(`admin.editProperty.ownershipOptions.${val}`)
-            })),
-            value: propertyData.land_ownership
-          },
-          {
-            key: 'ownership_type',
-            label: t('admin.editProperty.fields.ownershipType'),
-            type: 'select',
-            options: ['freehold', 'leasehold', 'company'].map(val => ({
-              value: val,
-              label: t(`admin.editProperty.ownershipOptions.${val}`)
-            })),
-            value: propertyData.ownership_type
-          }
-        ]
-      },
-      // Цены
-      {
-        section: 'pricing',
-        icon: HiCash,
-        fields: [
-          {
-            key: 'sale_price',
-            label: t('admin.editProperty.fields.salePrice'),
-            type: 'number',
-            min: 0,
-            value: propertyData.sale_price
-          },
-          {
-            key: 'minimum_nights',
-            label: t('admin.editProperty.fields.minimumNights'),
-            type: 'number',
-            min: 1,
-            value: propertyData.minimum_nights
-          }
-        ]
-      },
-      // Календарь
-      {
-        section: 'calendar',
-        icon: HiCalendar,
-        fields: [
-          {
-            key: 'ics_calendar_url',
-            label: t('admin.editProperty.fields.icsCalendarUrl'),
-            type: 'url',
-            value: propertyData.ics_calendar_url
-          }
-        ]
-      }
-    ]
-  }, [propertyData, t])
-
-  // Фильтрация полей по поисковому запросу
-  const filteredFields = useMemo(() => {
-    if (!searchQuery.trim()) return editableFields
-
-    const query = searchQuery.toLowerCase()
+  // Фильтрация полей по поиску
+  const filteredGroups = useMemo(() => {
+    if (!searchQuery) return fieldGroups
     
-    return editableFields.map(section => ({
-      ...section,
-      fields: section.fields.filter(field => 
-        field.label.toLowerCase().includes(query) ||
-        field.key.toLowerCase().includes(query) ||
-        t(`admin.editProperty.sections.${section.section}`).toLowerCase().includes(query)
-      )
-    })).filter(section => section.fields.length > 0)
-  }, [editableFields, searchQuery, t])
+    return fieldGroups
+      .map(group => ({
+        ...group,
+        fields: group.fields.filter(field =>
+          field.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          field.key.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      }))
+      .filter(group => group.fields.length > 0)
+  }, [fieldGroups, searchQuery])
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-red-500 
-                        border-t-transparent mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">
-            {t('admin.editProperty.loading')}
-          </p>
-        </div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
       </div>
     )
   }
@@ -479,226 +353,193 @@ const EditProperty = () => {
   if (!propertyData) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <HiExclamation className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <p className="text-gray-900 dark:text-white text-xl font-semibold">
-            Объект не найден
-          </p>
-        </div>
+        <p className="text-gray-500">{t('admin.editProperty.notFound')}</p>
       </div>
     )
   }
 
   return (
-    <div className="max-w-5xl mx-auto pb-20">
-      {/* Header */}
-      <div className="mb-8">
-        <button
-          onClick={() => navigate('/admin/properties')}
-          className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 
-                   hover:text-gray-900 dark:hover:text-white transition-colors mb-4"
-        >
-          <HiArrowLeft className="w-5 h-5" />
-          <span>{t('admin.editProperty.backToList')}</span>
-        </button>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <button
+            onClick={() => navigate('/admin/properties')}
+            className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 
+                     hover:text-gray-900 dark:hover:text-white transition-colors mb-4"
+          >
+            <HiArrowLeft className="w-5 h-5" />
+            <span>{t('common.back')}</span>
+          </button>
 
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              {t('admin.editProperty.title')}
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              {t('admin.editProperty.subtitle')}
-            </p>
-          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                {t('admin.editProperty.title')}
+              </h1>
+              <p className="mt-2 text-gray-600 dark:text-gray-400">
+                {propertyData.property_number}
+              </p>
+            </div>
 
-          {/* Save Button */}
-          <AnimatePresence>
-            {hasChanges && (
-              <motion.button
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+            <div className="flex items-center space-x-3">
+              {hasChanges && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="flex items-center space-x-2 px-4 py-2 bg-yellow-100 dark:bg-yellow-900/30 
+                           text-yellow-800 dark:text-yellow-200 rounded-lg"
+                >
+                  <HiExclamation className="w-5 h-5" />
+                  <span className="text-sm font-medium">{t('admin.editProperty.unsavedChanges')}</span>
+                </motion.div>
+              )}
+
+              <button
                 onClick={handleSave}
-                disabled={saving}
-                className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r 
-                         from-green-500 to-green-600 hover:from-green-600 hover:to-green-700
-                         text-white font-semibold rounded-xl shadow-lg hover:shadow-xl
-                         transition-all duration-300 disabled:opacity-50"
+                disabled={!hasChanges || saving}
+                className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700
+                         text-white rounded-lg hover:from-red-700 hover:to-red-800
+                         disabled:opacity-50 disabled:cursor-not-allowed
+                         transition-all shadow-lg hover:shadow-xl"
               >
-                {saving ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
-                    <span>{t('admin.editProperty.saving')}</span>
-                  </>
-                ) : (
-                  <>
-                    <HiSave className="w-5 h-5" />
-                    <span>{t('admin.editProperty.saveChanges')}</span>
-                  </>
-                )}
-              </motion.button>
+                <HiSave className="w-5 h-5" />
+                <span>{saving ? t('common.saving') : t('common.save')}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="mb-6">
+          <div className="relative">
+            <HiSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 
+                               text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t('admin.editProperty.searchFields')}
+              className="w-full pl-12 pr-4 py-3 bg-white dark:bg-gray-800 
+                       border-2 border-gray-200 dark:border-gray-700
+                       rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent
+                       text-gray-900 dark:text-white transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-4 top-1/2 transform -translate-y-1/2"
+              >
+                <HiX className="w-5 h-5 text-gray-400 hover:text-gray-600" />
+              </button>
             )}
-          </AnimatePresence>
-        </div>
-      </div>
-
-      {/* Search Bar */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-6">
-        <div className="relative">
-          <HiSearch className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t('admin.editProperty.search')}
-            className="w-full pl-12 pr-12 py-3 bg-gray-50 dark:bg-gray-700 
-                     border-2 border-gray-200 dark:border-gray-600
-                     rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent
-                     text-gray-900 dark:text-white placeholder-gray-400
-                     transition-all duration-200"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-4 top-1/2 -translate-y-1/2 p-1 
-                       hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full
-                       transition-colors"
-            >
-              <HiX className="w-5 h-5 text-gray-400" />
-            </button>
-          )}
+          </div>
         </div>
 
-        {searchQuery && filteredFields.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-4 text-center py-8"
-          >
-            <HiExclamation className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-            <p className="text-gray-600 dark:text-gray-400 font-medium">
-              {t('admin.editProperty.noFieldsFound')}
-            </p>
-            <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
-              {t('admin.editProperty.noFieldsFoundDesc')}
-            </p>
-          </motion.div>
-        )}
-      </div>
-
-      {/* Editable Fields */}
-      <div className="space-y-6">
-        {filteredFields.map((section, sectionIndex) => (
-          <motion.div
-            key={section.section}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: sectionIndex * 0.1 }}
-            className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden"
-          >
-            {/* Section Header */}
-            <div className="bg-gradient-to-r from-red-500 to-red-600 p-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                  <section.icon className="w-5 h-5 text-white" />
+        {/* Field Groups */}
+        <div className="space-y-6">
+          {filteredGroups.map((group, groupIndex) => {
+            const Icon = group.icon
+            
+            return (
+              <motion.div
+                key={group.title}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: groupIndex * 0.1 }}
+                className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden 
+                         border border-gray-200 dark:border-gray-700"
+              >
+                <div className={`bg-gradient-to-r from-${group.color}-500 to-${group.color}-600 p-6`}>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center 
+                                  backdrop-blur-sm">
+                      <Icon className="w-7 h-7 text-white" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-white">{group.title}</h2>
+                  </div>
                 </div>
-                <h2 className="text-xl font-bold text-white">
-                  {t(`admin.editProperty.sections.${section.section}`)}
-                </h2>
-              </div>
-            </div>
 
-            {/* Section Fields */}
-            <div className="p-6 space-y-5">
-              {section.fields.map((field) => (
-                <div key={field.key} className="space-y-2">
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    {field.label}
-                  </label>
-
-                  {field.type === 'select' ? (
-                    <select
-                      value={field.value ?? ''}
-                      onChange={(e) => updateField(field.key, e.target.value || null)}
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 
-                               border-2 border-gray-200 dark:border-gray-600
-                               rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent
-                               text-gray-900 dark:text-white transition-all"
-                    >
-                      <option value="">{t('admin.editProperty.selectOption')}</option>
-                      {field.options.map(option => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : field.type === 'textarea' ? (
-                    <textarea
-                      value={field.value ?? ''}
-                      onChange={(e) => updateField(field.key, e.target.value || null)}
-                      rows={3}
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 
-                               border-2 border-gray-200 dark:border-gray-600
-                               rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent
-                               text-gray-900 dark:text-white resize-none transition-all"
-                    />
-                  ) : (
-                    <input
-                      type={field.type}
-                      value={field.value ?? ''}
-                      onChange={(e) => {
-                        const value = e.target.value
-                        if (field.type === 'number') {
-                          updateField(field.key, value === '' ? null : parseFloat(value))
-                        } else {
-                          updateField(field.key, value || null)
-                        }
-                      }}
-                      min={field.min}
-                      max={field.max}
-                      step={field.step}
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 
-                               border-2 border-gray-200 dark:border-gray-600
-                               rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent
-                               text-gray-900 dark:text-white transition-all"
-                    />
-                  )}
+                <div className="p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {group.fields.map((field) => (
+                      <div key={field.key}>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                          {field.label}
+                        </label>
+                        {field.type === 'select' ? (
+                          <select
+                            value={propertyData[field.key] || ''}
+                            onChange={(e) => updateField(field.key, e.target.value || null)}
+                            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 
+                                     border-2 border-gray-200 dark:border-gray-600
+                                     rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent
+                                     text-gray-900 dark:text-white transition-all"
+                          >
+                            <option value="">{t('common.select')}</option>
+                            {field.options?.map(option => (
+                              <option key={option} value={option}>
+                                {t(`admin.editProperty.options.${option}`) || option}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type={field.type}
+                            value={propertyData[field.key] ?? ''}
+                            onChange={(e) => {
+                              const value = e.target.value
+                              if (field.type === 'number') {
+                                updateField(field.key, value === '' ? null : parseFloat(value))
+                              } else {
+                                updateField(field.key, value || null)
+                              }
+                            }}
+                            min={field.min}
+                            max={field.max}
+                            step={field.step}
+                            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 
+                                     border-2 border-gray-200 dark:border-gray-600
+                                     rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent
+                                     text-gray-900 dark:text-white transition-all"
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
-            </div>
-          </motion.div>
-        ))}
+              </motion.div>
+            )
+          })}
+        </div>
+
+        {/* Translations Section */}
+        <TranslationsEditor
+          translations={propertyData?.translations || []}
+          onUpdate={updateTranslation}
+        />
+
+        {/* Seasonal Pricing Section */}
+        <SeasonalPricingEditor
+          pricing={propertyData?.pricing || []}
+          propertyId={propertyId}
+          onUpdate={loadPropertyData}
+        />
+
+        {/* Photos Section */}
+        <PhotosEditor
+          photos={propertyData?.photos || []}
+          propertyId={propertyId}
+          onUpdate={loadPropertyData}
+        />
+
+        {/* Features Section */}
+        <FeaturesEditor
+          features={propertyData?.features || []}
+          propertyId={propertyId}
+          onUpdate={loadPropertyData}
+        />
       </div>
-
-      {/* Translations Section */}
-      <TranslationsEditor
-        translations={propertyData?.translations || []}
-        onUpdate={updateTranslation}
-      />
-
-      {/* Seasonal Pricing Section */}
-      <SeasonalPricingEditor
-        pricing={propertyData?.pricing || []}
-        propertyId={propertyId}
-        onUpdate={loadPropertyData}
-      />
-
-      {/* Photos Section */}
-      <PhotosEditor
-        photos={propertyData?.photos || []}
-        propertyId={propertyId}
-        onUpdate={loadPropertyData}
-      />
-
-      {/* Features Section */}
-      <FeaturesEditor
-        features={propertyData?.features || []}
-        propertyId={propertyId}
-        onUpdate={loadPropertyData}
-      />
     </div>
   )
 }

@@ -73,161 +73,232 @@ const AddProperty = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const handleSubmit = async () => {
-    try {
-      const loadingToast = toast.loading(t('admin.addProperty.submitting'))
-      
-      const furnitureStatusMap = {
-        'fullyFurnished': 'fully',
-        'partiallyFurnished': 'partially',
-        'unfurnished': 'unfurnished',
-        'negotiable': 'negotiable'
+    const handleSubmit = async () => {
+      const isValid = validateStep(currentStep)
+    
+      if (!isValid) {
+        toast.error(t('admin.addProperty.validation.fillAllRequired'))
+        return
       }
-
-      const petsAllowedMap = {
-        'petsYes': 'allowed',
-        'petsNo': 'not_allowed',
-        'petsNegotiable': 'negotiable'
+  
+      // Модальное окно с прогрессом
+      let progressToast = null
+      let uploadProgress = {
+        property: false,
+        photos: 0,
+        totalPhotos: 0,
+        currentCategory: '',
+        floorPlan: false
       }
-      
-      const propertyData = {
-        dealType: formData.dealType,
-        propertyType: formData.propertyType,
+  
+      const updateProgressToast = () => {
+        const messages = []
         
-        region: formData.region,
-        address: formData.address,
-        googleMapsLink: formData.googleMapsLink,
-        latitude: formData.coordinates?.lat || null,
-        longitude: formData.coordinates?.lng || null,
-        propertyNumber: formData.propertyNumber,
+        if (uploadProgress.property) {
+          messages.push('✅ Объект создан')
+        } else {
+          messages.push('⏳ Создание объекта...')
+        }
         
-        bedrooms: parseInt(formData.bedrooms),
-        bathrooms: parseFloat(formData.bathrooms),
-        indoorArea: parseFloat(formData.indoorArea),
-        outdoorArea: formData.outdoorArea ? parseFloat(formData.outdoorArea) : null,
-        plotSize: formData.plotSize ? parseFloat(formData.plotSize) : null,
-        floors: formData.floors ? parseInt(formData.floors) : null,
-        floor: formData.floor ? parseInt(formData.floor) : null,
-        penthouseFloors: formData.penthouseFloors ? parseInt(formData.penthouseFloors) : null,
+        if (uploadProgress.totalPhotos > 0) {
+          messages.push(
+            `📸 Загружено фото: ${uploadProgress.photos}/${uploadProgress.totalPhotos}` +
+            (uploadProgress.currentCategory ? ` (${uploadProgress.currentCategory})` : '')
+          )
+        }
         
-        constructionYear: parseInt(formData.constructionYear),
-        constructionMonth: parseInt(formData.constructionMonth),
-        furnitureStatus: furnitureStatusMap[formData.furnitureStatus] || formData.furnitureStatus,
-        // ✅ ИСПРАВЛЕНО: NULL вместо 0
-        parkingSpaces: formData.parkingSpaces ? parseInt(formData.parkingSpaces) : null,
-        petsAllowed: petsAllowedMap[formData.petsAllowed] || formData.petsAllowed,
-        petsCustom: formData.petsCustom || null,
+        if (formData.floorPlan) {
+          if (uploadProgress.floorPlan) {
+            messages.push('✅ Планировка загружена')
+          } else if (uploadProgress.property) {
+            messages.push('⏳ Загрузка планировки...')
+          }
+        }
         
-        buildingOwnership: formData.buildingOwnership || null,
-        landOwnership: formData.landOwnership || null,
-        ownershipType: formData.ownershipType || null,
+        if (progressToast) {
+          toast.dismiss(progressToast)
+        }
         
-        propertyFeatures: formData.propertyFeatures || [],
-        outdoorFeatures: formData.outdoorFeatures || [],
-        rentalFeatures: formData.rentalFeatures || [],
-        locationFeatures: formData.locationFeatures || [],
-        views: formData.views || [],
-        renovationDates: formData.renovationDates || {},
-        
-        propertyName: formData.propertyName || {},
-        description: formData.description || {},
-        
-        salePrice: formData.salePrice ? parseFloat(formData.salePrice) : null,
-        minimumNights: formData.minimumNights ? parseInt(formData.minimumNights) : null,
-        // ✅ ИСПРАВЛЕНО: преобразуем цены в числа
-        seasonalPricing: (formData.seasonalPricing || []).map(period => ({
-          startDate: period.startDate,
-          endDate: period.endDate,
-          pricePerNight: parseFloat(period.pricePerNight)
-        })),
-        
-        icsCalendarUrl: formData.icsCalendarUrl || null,
-        
-        status: 'published'
-      }
-
-      console.log('📤 Отправка данных на сервер:', propertyData)
-
-      const response = await propertyApi.createProperty(propertyData)
-
-      console.log('✅ Ответ от сервера:', response)
-
-      if (response.success) {
-        const propertyId = response.data.propertyId
-        
-        console.log(`🆔 ID созданного объекта: ${propertyId}`)
-        
-        // ✅ ИСПРАВЛЕНО: Загрузка фотографий с категориями
-        if (formData.photos && formData.photos.length > 0) {
-          console.log(`📸 Загрузка ${formData.photos.length} фотографий...`)
-          
-          // Группируем фото по категориям
-          const photosByCategory = {}
-          formData.photos.forEach(photo => {
-            if (photo && photo.file) {
-              const category = photo.category || 'general'
-              if (!photosByCategory[category]) {
-                photosByCategory[category] = []
-              }
-              photosByCategory[category].push(photo.file)
+        progressToast = toast.loading(
+          <div className="space-y-2">
+            {messages.map((msg, i) => (
+              <div key={i} className="text-sm">{msg}</div>
+            ))}
+          </div>,
+          {
+            duration: Infinity,
+            style: {
+              minWidth: '300px'
             }
+          }
+        )
+      }
+  
+      try {
+        updateProgressToast()
+    
+        // Подготовка данных объекта
+        const propertyData = {
+          dealType: formData.dealType,
+          propertyType: formData.propertyType,
+          region: formData.region,
+          address: formData.address,
+          googleMapsLink: formData.googleMapsLink,
+          latitude: formData.latitude ? parseFloat(formData.latitude) : null,
+          longitude: formData.longitude ? parseFloat(formData.longitude) : null,
+          propertyNumber: formData.propertyNumber,
+          bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : null,
+          bathrooms: formData.bathrooms ? parseInt(formData.bathrooms) : null,
+          indoorArea: formData.indoorArea ? parseFloat(formData.indoorArea) : null,
+          outdoorArea: formData.outdoorArea ? parseFloat(formData.outdoorArea) : null,
+          plotSize: formData.plotSize ? parseFloat(formData.plotSize) : null,
+          floors: formData.floors ? parseInt(formData.floors) : null,
+          floor: formData.floor ? parseInt(formData.floor) : null,
+          penthouseFloors: formData.penthouseFloors ? parseInt(formData.penthouseFloors) : null,
+          constructionYear: formData.constructionYear ? parseInt(formData.constructionYear) : null,
+          constructionMonth: formData.constructionMonth ? parseInt(formData.constructionMonth) : null,
+          furnitureStatus: formData.furnitureStatus || null,
+          parkingSpaces: formData.parkingSpaces ? parseInt(formData.parkingSpaces) : null,
+          petsAllowed: formData.petsAllowed || null,
+          petsCustom: formData.petsCustom || null,
+          buildingOwnership: formData.buildingOwnership || null,
+          landOwnership: formData.landOwnership || null,
+          ownershipType: formData.ownershipType || null,
+          propertyFeatures: formData.propertyFeatures || [],
+          outdoorFeatures: formData.outdoorFeatures || [],
+          rentalFeatures: formData.rentalFeatures || [],
+          locationFeatures: formData.locationFeatures || [],
+          views: formData.views || [],
+          renovationDates: formData.renovationDates || {},
+          propertyName: formData.propertyName || {},
+          description: formData.description || {},
+          salePrice: formData.salePrice ? parseFloat(formData.salePrice) : null,
+          minimumNights: formData.minimumNights ? parseInt(formData.minimumNights) : null,
+          seasonalPricing: (formData.seasonalPricing || []).map(period => ({
+            seasonType: period.seasonType,
+            startDate: period.startDate,
+            endDate: period.endDate,
+            pricePerNight: parseFloat(period.pricePerNight),
+            minimumNights: parseInt(period.minimumNights)
+          })),
+          icsCalendarUrl: formData.icsCalendarUrl || null,
+          status: 'published'
+        }
+    
+        console.log('📤 Отправка данных на сервер:', propertyData)
+    
+        // Создание объекта
+        const response = await propertyApi.createProperty(propertyData)
+        console.log('✅ Ответ от сервера:', response)
+    
+        if (response.success) {
+          const propertyId = response.data.propertyId
+          uploadProgress.property = true
+          updateProgressToast()
+        
+          console.log(`🆔 ID созданного объекта: ${propertyId}`)
+        
+          // Загрузка фотографий с прогрессом
+          if (formData.photos && formData.photos.length > 0) {
+            console.log(`📸 Начинается загрузка ${formData.photos.length} фотографий...`)
+            
+            // Группируем фото по категориям
+            const photosByCategory = {}
+            formData.photos.forEach(photo => {
+              if (photo && photo.file) {
+                const category = photo.category || 'general'
+                if (!photosByCategory[category]) {
+                  photosByCategory[category] = []
+                }
+                photosByCategory[category].push(photo.file)
+              }
+            })
+            
+            uploadProgress.totalPhotos = formData.photos.length
+            let uploadedCount = 0
+            
+            // Загружаем фото по категориям
+            for (const [category, files] of Object.entries(photosByCategory)) {
+              uploadProgress.currentCategory = category
+              updateProgressToast()
+            
+              try {
+                console.log(`📤 Загрузка ${files.length} фото в категорию "${category}"...`)
+                
+                await propertyApi.uploadPhotos(propertyId, files, category, (progress) => {
+                  console.log(`📊 Прогресс загрузки ${category}: ${progress}%`)
+                })
+                
+                uploadedCount += files.length
+                uploadProgress.photos = uploadedCount
+                updateProgressToast()
+                
+                console.log(`✅ Загружено ${files.length} фото в категорию "${category}"`)
+              } catch (photoError) {
+                console.error(`❌ Ошибка загрузки фото (${category}):`, photoError)
+                toast.error(`Ошибка загрузки фото в категории "${category}"`)
+              }
+            }
+            
+            console.log(`✅ Все фотографии загружены: ${uploadedCount}/${formData.photos.length}`)
+          }
+          
+          // Загружаем планировку
+          if (formData.floorPlan && formData.floorPlan.file) {
+            console.log('📋 Загрузка планировки...')
+            updateProgressToast()
+            
+            try {
+              await propertyApi.uploadFloorPlan(propertyId, formData.floorPlan.file, (progress) => {
+                console.log(`📊 Прогресс загрузки планировки: ${progress}%`)
+              })
+              
+              uploadProgress.floorPlan = true
+              updateProgressToast()
+              
+              console.log('✅ Планировка загружена')
+            } catch (floorPlanError) {
+              console.error('❌ Ошибка загрузки планировки:', floorPlanError)
+              toast.error('Ошибка загрузки планировки')
+            }
+          }
+          
+          // Закрываем прогресс и показываем успех
+          if (progressToast) {
+            toast.dismiss(progressToast)
+          }
+          
+          toast.success(t('admin.addProperty.success'), {
+            duration: 4000,
+            icon: '🎉'
           })
           
-          // Загружаем фото по категориям
-          for (const [category, files] of Object.entries(photosByCategory)) {
-            try {
-              await propertyApi.uploadPhotos(propertyId, files, category)
-              console.log(`✅ Загружено ${files.length} фото в категорию "${category}"`)
-            } catch (photoError) {
-              console.error(`❌ Ошибка загрузки фото (${category}):`, photoError)
-            }
-          }
+          console.log('✅ Объект успешно создан!')
           
-          toast.success(`${formData.photos.length} фотографий загружено`)
+          // Сброс формы и переход
+          resetForm()
+          setTimeout(() => {
+            navigate(`/admin/properties/${propertyId}/edit`)
+          }, 1000)
+        }
+      } catch (error) {
+        console.error('❌ Ошибка создания объекта:', error)
+        
+        if (progressToast) {
+          toast.dismiss(progressToast)
+        }
+        
+        if (error.code === 'ECONNABORTED') {
+          toast.error('Превышено время ожидания. Попробуйте загрузить меньше файлов за раз.', {
+            duration: 6000
+          })
         } else {
-          console.log('ℹ️ Нет фотографий для загрузки')
+          toast.error(error.response?.data?.message || t('admin.addProperty.error'), {
+            duration: 6000
+          })
         }
-        
-        // Загружаем планировку
-        if (formData.floorPlan && formData.floorPlan.file) {
-          console.log('📋 Загрузка планировки...')
-          try {
-            await propertyApi.uploadFloorPlan(propertyId, formData.floorPlan.file)
-            console.log('✅ Планировка загружена')
-          } catch (floorPlanError) {
-            console.error('❌ Ошибка загрузки планировки:', floorPlanError)
-          }
-        }
-        
-        toast.dismiss(loadingToast)
-        
-        toast.success(t('admin.addProperty.success'), {
-          duration: 4000,
-          icon: '🎉'
-        })
-        
-        console.log('✅ Объект успешно создан!')
-        
-        resetForm()
-        
-        setTimeout(() => {
-          navigate('/admin/properties')
-        }, 1500)
       }
-    } catch (error) {
-      console.error('❌ Ошибка при создании объекта:', error)
-      console.error('Детали ошибки:', error.response?.data)
-      
-      toast.dismiss()
-      
-      const errorMessage = error.response?.data?.message || 
-                          error.message || 
-                          t('admin.addProperty.error')
-      toast.error(errorMessage, {
-        duration: 5000
-      })
     }
-  }
 
   const renderStep = () => {
     switch (currentStep) {

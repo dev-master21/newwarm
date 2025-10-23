@@ -6,7 +6,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000,
+  timeout: 300000, // 5 минут для загрузки больших файлов
   headers: {
     'Content-Type': 'application/json'
   }
@@ -20,6 +20,12 @@ axiosInstance.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+    
+    // Увеличиваем timeout для загрузки файлов
+    if (config.headers['Content-Type'] === 'multipart/form-data') {
+      config.timeout = 600000 // 10 минут для загрузки файлов
+    }
+    
     return config
   },
   (error) => {
@@ -34,6 +40,11 @@ axiosInstance.interceptors.response.use(
   },
   (error) => {
     // Обработка ошибок
+    if (error.code === 'ECONNABORTED') {
+      toast.error('Превышено время ожидания. Попробуйте загрузить меньше файлов.')
+      return Promise.reject(error)
+    }
+    
     if (error.response) {
       const { status, data } = error.response
 
@@ -55,6 +66,10 @@ axiosInstance.interceptors.response.use(
 
         case 404:
           toast.error(data.message || 'Ресурс не найден')
+          break
+
+        case 413:
+          toast.error('Файлы слишком большие. Максимум 50 МБ на файл.')
           break
 
         case 500:

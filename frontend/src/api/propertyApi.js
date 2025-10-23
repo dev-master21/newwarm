@@ -51,9 +51,25 @@ class PropertyApi {
   }
 
   /**
-   * Загрузка фотографий
+   * Получение сезонных цен
    */
-  async uploadPhotos(propertyId, files, category = '') {
+  async getSeasonalPricing(propertyId) {
+    const response = await axios.get(`/admin/properties/${propertyId}/pricing`)
+    return response.data
+  }
+
+  /**
+   * Сохранение сезонных цен
+   */
+  async saveSeasonalPricing(propertyId, data) {
+    const response = await axios.put(`/admin/properties/${propertyId}/pricing`, data)
+    return response.data
+  }
+
+  /**
+   * Загрузка фотографий с прогрессом
+   */
+  async uploadPhotos(propertyId, files, category = '', onProgress = null) {
     const formData = new FormData()
     
     files.forEach(file => {
@@ -70,6 +86,12 @@ class PropertyApi {
       {
         headers: {
           'Content-Type': 'multipart/form-data'
+        },
+        onUploadProgress: (progressEvent) => {
+          if (onProgress && progressEvent.total) {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+            onProgress(percentCompleted)
+          }
         }
       }
     )
@@ -80,7 +102,7 @@ class PropertyApi {
   /**
    * Загрузка планировки
    */
-  async uploadFloorPlan(propertyId, file) {
+  async uploadFloorPlan(propertyId, file, onProgress = null) {
     const formData = new FormData()
     formData.append('floorPlan', file)
 
@@ -90,6 +112,12 @@ class PropertyApi {
       {
         headers: {
           'Content-Type': 'multipart/form-data'
+        },
+        onUploadProgress: (progressEvent) => {
+          if (onProgress && progressEvent.total) {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+            onProgress(percentCompleted)
+          }
         }
       }
     )
@@ -114,6 +142,38 @@ class PropertyApi {
     })
     return response.data
   }
+      /**
+     * Обновление порядка фотографий
+     */
+    async updatePhotosOrder(propertyId, photos) {
+      const response = await axios.put(
+        `/admin/properties/${propertyId}/photos/order`,
+        { photos }
+      )
+      return response.data
+    }
+    
+    /**
+     * Обновление категории фотографии
+     */
+    async updatePhotoCategory(photoId, category) {
+      const response = await axios.patch(
+        `/admin/photos/${photoId}/category`,
+        { category }
+      )
+      return response.data
+    }
+    
+    /**
+     * Установка главной фотографии
+     */
+    async setPrimaryPhoto(photoId, scope = 'global') {
+      const response = await axios.patch(
+        `/admin/photos/${photoId}/primary`,
+        { scope }
+      )
+      return response.data
+    }
 }
 
 export default new PropertyApi()
