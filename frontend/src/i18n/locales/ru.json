@@ -564,40 +564,46 @@
         "photoRemoved": "Фотография удалена"
       },
       "step9": {
-        "title": "Цены",
-        "subtitle": "Укажите стоимость объекта",
+        "title": "Цены и тарифы",
+        "subtitle": "Установите цены для продажи и/или аренды недвижимости",
+        
         "salePrice": "Цена продажи",
-        "salePricePlaceholder": "Укажите цену в батах",
-        "salePriceSubtitle": "Укажите стоимость объекта для продажи",
-        "currency": "฿",
-        "rentalPricing": "Цены на аренду",
-        "rentalPricingSubtitle": "Настройте цены на аренду по сезонам",
-        "minimumNights": "Минимальное количество дней для аренды",
-        "minimumNightsPlaceholder": "Например: 7",
+        "salePriceLabel": "Цена недвижимости",
+        "salePricePlaceholder": "Введите цену продажи",
+        
+        "rentPricing": "Цены аренды",
+        "basePricePerNight": "Базовая цена за ночь",
+        "basePriceHint": "Это стандартная цена, которая будет применяться вне сезонных периодов",
+        "basePricePlaceholder": "Введите базовую цену",
+        
+        "minimumNights": "Минимальное количество ночей",
+        "minimumNightsHint": "Минимальное количество ночей для бронирования",
+        
         "seasonalPricing": "Сезонные цены",
-        "addPeriod": "Добавить период",
-        "pricePerNight": "Цена за ночь",
-        "pricePerNightPlaceholder": "Цена в батах",
-        "startDate": "Начало периода",
-        "endDate": "Конец периода",
-        "removePeriod": "Удалить период",
-        "periodNumber": "Период {{number}}",
-        "salePriceInfo": "Полная стоимость объекта для продажи",
-        "minimumNightsInfo": "Минимальный срок аренды в днях",
-        "seasonalPricingInfo": "Укажите разные цены для разных периодов года",
-        "salePriceLabel": "Цена продажи (THB)",
+        "seasonalPricingHint": "Установите разные цены для разных периодов года",
         "addSeason": "Добавить сезон",
-        "season": "Сезон",
-        "noSeasons": "Нажмите 'Добавить сезон' для создания ценового периода",
-        "addSeasonHint": "Нажмите кнопку выше для добавления сезонной цены",
-        "salePriceHint": "Укажите цену продажи, если объект продается",
-        "period": "Период",
-        "deletePeriod": "Удалить период",
-        "noPeriods": "Ценовые периоды не добавлены",
-        "addFirstPeriod": "Добавьте первый ценовой период",
-        "periodExample": "Например: высокий сезон (декабрь-март)",
-        "note": "Примечание",
-        "pricingNote": "Для объектов на продажу укажите цену продажи. Для аренды добавьте сезонные цены."
+        "removeSeason": "Удалить сезон",
+        "noSeasons": "Сезонные цены не добавлены",
+        "addSeasonHint": "Нажмите кнопку выше, чтобы добавить сезонные цены",
+        
+        "seasonType": "Тип сезона",
+        "seasonTypes": {
+          "low": "Низкий сезон",
+          "mid": "Средний сезон",
+          "peak": "Высокий сезон",
+          "prime": "Премиум сезон",
+          "holiday": "Праздничный период"
+        },
+        
+        "startDate": "Дата начала",
+        "endDate": "Дата окончания",
+        "selectDate": "Выберите дату",
+        
+        "pricePerNight": "Цена за ночь",
+        "pricePerNightPlaceholder": "Введите цену",
+        
+        "minimumNightsForSeason": "Минимум ночей",
+        "minimumNightsPlaceholder": "Минимум для этого сезона"
       },
       "step10": {
         "title": "Календарь доступности",
