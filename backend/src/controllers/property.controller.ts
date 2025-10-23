@@ -5,6 +5,7 @@ import db from '../config/database';
 import calendarService from '../services/calendar.service';
 import fs from 'fs-extra';
 import path from 'path';
+import { thumbnailService } from '../services/thumbnail.service'
 
 class PropertyController {
   /**
@@ -295,6 +296,85 @@ class PropertyController {
     }
   }
 
+    /**
+     * Получение объектов для карты (публичный endpoint)
+     */
+    async getPropertiesForMap(req: AuthRequest, res: Response) {
+      try {
+        console.log('🗺️ Получение объектов для карты...');
+    
+        const query = `
+          SELECT 
+            p.id,
+            p.property_type,
+            p.deal_type,
+            p.latitude,
+            p.longitude,
+            p.region,
+            p.address,
+            p.sale_price,
+            p.bedrooms,
+            p.bathrooms,
+            p.indoor_area,
+            pt.property_name as name,
+            (SELECT MIN(price_per_night) FROM property_pricing WHERE property_id = p.id) as price_per_night,
+            (
+              SELECT GROUP_CONCAT(
+                pp2.photo_url
+                ORDER BY pp2.is_primary DESC, pp2.sort_order ASC
+                SEPARATOR '|||'
+              )
+              FROM property_photos pp2
+              WHERE pp2.property_id = p.id
+            ) as photos_concat
+          FROM properties p
+          LEFT JOIN property_translations pt ON p.id = pt.property_id AND pt.language_code = 'ru'
+          WHERE p.status = 'published'
+            AND p.deleted_at IS NULL
+            AND p.latitude IS NOT NULL
+            AND p.longitude IS NOT NULL
+          ORDER BY p.created_at DESC
+        `;
+    
+        const properties: any = await db.query(query);
+    
+        const processedProperties = properties.map((property: any) => {
+          let photos: string[] = [];
+        
+          if (property.photos_concat) {
+            photos = property.photos_concat.split('|||').filter((p: string) => p);
+          }
+      
+          return {
+            id: property.id,
+            name: property.name || `Property ${property.id}`,
+            property_type: property.property_type,
+            deal_type: property.deal_type,
+            coordinates: {
+              lat: parseFloat(property.latitude),
+              lng: parseFloat(property.longitude)
+            },
+            price_per_night: property.price_per_night || property.sale_price,
+            bedrooms: property.bedrooms,
+            bathrooms: property.bathrooms,
+            indoor_area: property.indoor_area,
+            region: property.region,
+            address: property.address,
+            photos: photos
+          };
+        });
+    
+        console.log(`✅ Найдено ${processedProperties.length} объектов для карты`);
+    
+        res.json(processedProperties);
+      } catch (error) {
+        console.error('❌ Ошибка получения объектов для карты:', error);
+        res.status(500).json({
+          success: false,
+          message: 'Failed to get properties for map'
+        });
+      }
+    }
   /**
    * Получение объекта по ID
    */
@@ -762,7 +842,6 @@ class PropertyController {
       }
 
       console.log(`✅ Все ${files.length} фотографий успешно загружены`);
-
       res.json({
         success: true,
         data: {
@@ -901,21 +980,21 @@ class PropertyController {
       try {
         const { propertyId } = req.params;
         const { photos } = req.body; // массив { id, sort_order }
-    
+
         console.log(`🔄 Обновление порядка фотографий для объекта #${propertyId}`);
-    
+
         const property: any = await db.query(
           'SELECT id FROM properties WHERE id = ? AND created_by = ? AND deleted_at IS NULL',
           [propertyId, req.admin?.id]
         );
-    
+
         if (!property || property.length === 0) {
           return res.status(404).json({
             success: false,
             message: 'Property not found'
           });
         }
-    
+
         // Обновляем порядок для каждой фотографии
         for (const photo of photos) {
           await db.query(
@@ -923,9 +1002,9 @@ class PropertyController {
             [photo.sort_order, photo.id, propertyId]
           );
         }
-    
+
         console.log(`✅ Порядок ${photos.length} фотографий обновлен`);
-    
+
         res.json({
           success: true,
           message: 'Photos order updated successfully'
@@ -938,7 +1017,7 @@ class PropertyController {
         });
       }
     }
-    
+
     /**
      * Обновление категории фотографии
      */
@@ -946,9 +1025,9 @@ class PropertyController {
       try {
         const { photoId } = req.params;
         const { category } = req.body;
-    
+
         console.log(`📁 Обновление категории фото #${photoId} на "${category}"`);
-    
+
         const photos: any = await db.query(
           `SELECT pp.id, pp.property_id, p.created_by
            FROM property_photos pp
@@ -956,30 +1035,30 @@ class PropertyController {
            WHERE pp.id = ?`,
           [photoId]
         );
-    
+
         if (!photos || photos.length === 0) {
           return res.status(404).json({
             success: false,
             message: 'Photo not found'
           });
         }
-    
+
         const photo = photos[0];
-    
+
         if (photo.created_by !== req.admin?.id) {
           return res.status(403).json({
             success: false,
             message: 'Access denied'
           });
         }
-    
+
         await db.query(
           'UPDATE property_photos SET category = ? WHERE id = ?',
           [category || null, photoId]
         );
-    
+
         console.log(`✅ Категория фото #${photoId} обновлена`);
-    
+
         res.json({
           success: true,
           message: 'Photo category updated successfully'
@@ -992,7 +1071,7 @@ class PropertyController {
         });
       }
     }
-    
+
     /**
      * Установка главной фотографии
      */
@@ -1000,9 +1079,9 @@ class PropertyController {
       try {
         const { photoId } = req.params;
         const { scope } = req.body; // 'global' или 'category'
-    
+
         console.log(`⭐ Установка главной фотографии #${photoId} (scope: ${scope})`);
-    
+
         const photos: any = await db.query(
           `SELECT pp.id, pp.property_id, pp.category, p.created_by
            FROM property_photos pp
@@ -1010,30 +1089,30 @@ class PropertyController {
            WHERE pp.id = ?`,
           [photoId]
         );
-    
+
         if (!photos || photos.length === 0) {
           return res.status(404).json({
             success: false,
             message: 'Photo not found'
           });
         }
-    
+
         const photo = photos[0];
-    
+
         if (photo.created_by !== req.admin?.id) {
           return res.status(403).json({
             success: false,
             message: 'Access denied'
           });
         }
-    
+
         if (scope === 'global') {
           // Убираем is_primary у всех фото объекта
           await db.query(
             'UPDATE property_photos SET is_primary = FALSE WHERE property_id = ?',
             [photo.property_id]
           );
-          
+
           // Устанавливаем is_primary для выбранного фото
           await db.query(
             'UPDATE property_photos SET is_primary = TRUE WHERE id = ?',
@@ -1045,16 +1124,16 @@ class PropertyController {
             'UPDATE property_photos SET is_primary = FALSE WHERE property_id = ? AND category = ?',
             [photo.property_id, photo.category]
           );
-          
+
           // Устанавливаем is_primary для выбранного фото
           await db.query(
             'UPDATE property_photos SET is_primary = TRUE WHERE id = ?',
             [photoId]
           );
         }
-    
+
         console.log(`✅ Главная фотография установлена (scope: ${scope})`);
-    
+
         res.json({
           success: true,
           message: 'Primary photo set successfully'

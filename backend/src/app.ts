@@ -4,7 +4,8 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
 import path from 'path';
-
+import thumbnailRoutes from './routes/thumbnail.routes'
+import { startThumbnailJob } from './jobs/thumbnail.job'
 import routes from './routes';
 import errorMiddleware from './middlewares/error.middleware';
 import { config } from './config/config';
@@ -15,6 +16,8 @@ const app: Application = express();
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
+
+app.use('/api/thumbnails', thumbnailRoutes)
 
 // CORS
 app.use(cors({
@@ -60,5 +63,6 @@ app.use((req, res) => {
 
 // Error handler
 app.use(errorMiddleware);
+startThumbnailJob()
 
 export default app;

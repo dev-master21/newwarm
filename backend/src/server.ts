@@ -7,6 +7,8 @@ import path from 'path';
 import { config } from './config/config';
 import routes from './routes';
 import db from './config/database';
+import { thumbnailService } from './services/thumbnail.service';
+import { startThumbnailJob } from './jobs/thumbnail.job';
 
 const app = express();
 
@@ -93,7 +95,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // Запуск сервера
 const PORT = config.port;
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`
 ╔══════════════════════════════════════╗
 ║   🚀 WARM+ Backend Server Started   ║
@@ -104,18 +106,36 @@ app.listen(PORT, () => {
 ║  Frontend:    ${config.frontendUrl.padEnd(23)}║
 ╚══════════════════════════════════════╝
   `);
+
+  // Запуск cron job для автоматической генерации thumbnails
+  console.log('\n📅 Starting thumbnail services...');
+  startThumbnailJob();
+
+  // Запуск полной синхронизации thumbnails при старте сервера (в фоне)
+  console.log('🖼️  Starting initial thumbnail synchronization...\n');
+  
+  // Запускаем в фоне, чтобы не блокировать старт сервера
+  thumbnailService.fullSync()
+    .then((stats) => {
+      console.log('\n✅ Initial thumbnail synchronization completed on startup!');
+    })
+    .catch((error) => {
+      console.error('\n❌ Error during initial thumbnail synchronization:', error);
+    });
 });
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
-  console.log('SIGTERM received, closing server...');
+  console.log('\n⚠️  SIGTERM received, closing server gracefully...');
   await db.close();
+  console.log('✅ Database connection closed');
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
-  console.log('SIGINT received, closing server...');
+  console.log('\n⚠️  SIGINT received, closing server gracefully...');
   await db.close();
+  console.log('✅ Database connection closed');
   process.exit(0);
 });
 

@@ -7,6 +7,8 @@ import contactRoutes from './contact.routes';
 import configRoutes from './config.routes';
 import adminRoutes from './admin.routes';
 import mapsRoutes from './maps.routes';
+import propertyRoutes from './property.routes';
+import thumbnailRoutes from './thumbnail.routes'; // Добавлено
 
 const router = Router();
 
@@ -17,8 +19,10 @@ router.use('/auth', authRoutes);
 router.use('/maps', mapsRoutes);
 router.use('/contact', contactRoutes);
 router.use('/config', configRoutes);
+router.use('/properties', propertyRoutes);
 
 // Admin routes
 router.use('/admin', adminRoutes);
+router.use('/thumbnails', thumbnailRoutes); // Добавлено
 
 export default router;
