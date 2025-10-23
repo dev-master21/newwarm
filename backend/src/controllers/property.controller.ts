@@ -129,10 +129,20 @@ class PropertyController {
       }
       console.log(`✅ Добавлено ${totalFeatures} особенностей`);
 
-      // Сохраняем seasonal pricing с новыми полями
+      // ИСПРАВЛЕНО: Детальное логирование seasonal pricing
       if (seasonalPricing && Array.isArray(seasonalPricing) && seasonalPricing.length > 0) {
         console.log(`🔄 Добавление ${seasonalPricing.length} сезонных периодов цен...`);
+        console.log('📊 Полученные данные seasonalPricing:', JSON.stringify(seasonalPricing, null, 2));
+        
         for (const period of seasonalPricing) {
+          console.log('📌 Обработка периода:', {
+            seasonType: period.seasonType,
+            startDate: period.startDate,
+            endDate: period.endDate,
+            pricePerNight: period.pricePerNight,
+            minimumNights: period.minimumNights
+          });
+          
           await connection.query(
             `INSERT INTO property_pricing 
              (property_id, season_type, start_date_recurring, end_date_recurring, price_per_night, minimum_nights, created_at)
@@ -146,8 +156,10 @@ class PropertyController {
               period.minimumNights ? parseInt(period.minimumNights) : 1
             ]
           );
+          
+          console.log('✅ Период добавлен в БД');
         }
-        console.log(`✅ Сезонные цены добавлены`);
+        console.log(`✅ Все сезонные цены добавлены`);
       }
 
       await connection.commit();
@@ -290,13 +302,17 @@ class PropertyController {
     try {
       const { propertyId } = req.params;
 
-      const [properties]: any = await db.query(
+      console.log(`🔍 Получение объекта #${propertyId} для админа #${req.admin?.id}`);
+
+      // ИСПРАВЛЕНО: убрана лишняя деструктуризация
+      const properties: any = await db.query(
         `SELECT p.* FROM properties p
-         WHERE p.id = ? AND p.deleted_at IS NULL`,
-        [propertyId]
+         WHERE p.id = ? AND p.created_by = ? AND p.deleted_at IS NULL`,
+        [propertyId, req.admin?.id]
       );
 
       if (!properties || properties.length === 0) {
+        console.log(`❌ Объект #${propertyId} не найден или нет прав доступа`);
         return res.status(404).json({
           success: false,
           message: 'Property not found'
@@ -304,6 +320,7 @@ class PropertyController {
       }
 
       const property = properties[0];
+      console.log(`✅ Объект найден: ${property.property_number}`);
 
       // Получаем переводы
       const translations: any = await db.query(
@@ -364,7 +381,7 @@ class PropertyController {
       );
       property.photos = photos;
 
-      // Получаем seasonal pricing с новыми полями
+      // Получаем seasonal pricing
       const pricing: any = await db.query(
         `SELECT 
           season_type as seasonType,
@@ -379,12 +396,14 @@ class PropertyController {
       );
       property.seasonalPricing = pricing;
 
+      console.log(`✅ Данные объекта #${propertyId} успешно загружены`);
+
       res.json({
         success: true,
         data: { property }
       });
     } catch (error) {
-      console.error('Get property error:', error);
+      console.error('❌ Get property error:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to get property'
@@ -444,8 +463,8 @@ class PropertyController {
         status
       } = req.body;
 
-      // Проверяем права доступа
-      const [property]: any = await connection.query(
+      // ИСПРАВЛЕНО: убрана деструктуризация
+      const property: any = await connection.query(
         'SELECT id FROM properties WHERE id = ? AND created_by = ? AND deleted_at IS NULL',
         [propertyId, req.admin?.id]
       );
@@ -524,11 +543,22 @@ class PropertyController {
       }
       console.log('✅ Особенности обновлены');
 
-      // Обновляем seasonal pricing
+      // ИСПРАВЛЕНО: Детальное логирование обновления seasonal pricing
       await connection.query('DELETE FROM property_pricing WHERE property_id = ?', [propertyId]);
       
       if (seasonalPricing && Array.isArray(seasonalPricing) && seasonalPricing.length > 0) {
+        console.log(`🔄 Обновление ${seasonalPricing.length} сезонных периодов...`);
+        console.log('📊 Данные для обновления:', JSON.stringify(seasonalPricing, null, 2));
+        
         for (const period of seasonalPricing) {
+          console.log('📌 Обработка периода:', {
+            seasonType: period.seasonType,
+            startDate: period.startDate,
+            endDate: period.endDate,
+            pricePerNight: period.pricePerNight,
+            minimumNights: period.minimumNights
+          });
+          
           await connection.query(
             `INSERT INTO property_pricing 
              (property_id, season_type, start_date_recurring, end_date_recurring, price_per_night, minimum_nights, created_at)
@@ -583,7 +613,8 @@ class PropertyController {
 
       console.log(`🗑️ Удаление объекта #${propertyId}`);
 
-      const [property]: any = await db.query(
+      // ИСПРАВЛЕНО: убрана деструктуризация
+      const property: any = await db.query(
         'SELECT id FROM properties WHERE id = ? AND created_by = ? AND deleted_at IS NULL',
         [propertyId, req.admin?.id]
       );
@@ -632,7 +663,8 @@ class PropertyController {
         });
       }
 
-      const [property]: any = await db.query(
+      // ИСПРАВЛЕНО: убрана деструктуризация
+      const property: any = await db.query(
         'SELECT id, status FROM properties WHERE id = ? AND created_by = ? AND deleted_at IS NULL',
         [propertyId, req.admin?.id]
       );
@@ -676,7 +708,7 @@ class PropertyController {
       const { category } = req.body;
       const files = req.files as Express.Multer.File[];
 
-      console.log(`📸 Загрузка фотографий для объекта #${propertyId}`);
+      console.log(`📸 Загрузка ${files?.length || 0} фотографий для объекта #${propertyId}`);
 
       if (!files || files.length === 0) {
         return res.status(400).json({
@@ -685,8 +717,9 @@ class PropertyController {
         });
       }
 
-      const [property]: any = await db.query(
-        'SELECT id FROM properties WHERE id = ? AND created_by = ?',
+      // ИСПРАВЛЕНО: убрана деструктуризация
+      const property: any = await db.query(
+        'SELECT id FROM properties WHERE id = ? AND created_by = ? AND deleted_at IS NULL',
         [propertyId, req.admin?.id]
       );
 
@@ -701,7 +734,7 @@ class PropertyController {
         });
       }
 
-      const [maxOrder]: any = await db.query(
+      const maxOrder: any = await db.query(
         'SELECT MAX(sort_order) as max_order FROM property_photos WHERE property_id = ?',
         [propertyId]
       );
@@ -719,10 +752,16 @@ class PropertyController {
         );
 
         photoUrls.push({
+          id: sortOrder - 1,
           url: photoUrl,
-          category: category || null
+          category: category || null,
+          sort_order: sortOrder - 1
         });
+
+        console.log(`✅ Фото загружено: ${file.filename}`);
       }
+
+      console.log(`✅ Все ${files.length} фотографий успешно загружены`);
 
       res.json({
         success: true,
@@ -731,7 +770,7 @@ class PropertyController {
         }
       });
     } catch (error) {
-      console.error('Upload photos error:', error);
+      console.error('❌ Upload photos error:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to upload photos'
@@ -747,6 +786,8 @@ class PropertyController {
       const { propertyId } = req.params;
       const file = req.file;
 
+      console.log(`📐 Загрузка планировки для объекта #${propertyId}`);
+
       if (!file) {
         return res.status(400).json({
           success: false,
@@ -754,8 +795,9 @@ class PropertyController {
         });
       }
 
-      const [property]: any = await db.query(
-        'SELECT floor_plan_url FROM properties WHERE id = ? AND created_by = ?',
+      // ИСПРАВЛЕНО: убрана деструктуризация
+      const property: any = await db.query(
+        'SELECT floor_plan_url FROM properties WHERE id = ? AND created_by = ? AND deleted_at IS NULL',
         [propertyId, req.admin?.id]
       );
 
@@ -780,6 +822,8 @@ class PropertyController {
         [floorPlanUrl, propertyId]
       );
 
+      console.log(`✅ Планировка загружена: ${file.filename}`);
+
       res.json({
         success: true,
         data: {
@@ -787,7 +831,7 @@ class PropertyController {
         }
       });
     } catch (error) {
-      console.error('Upload floor plan error:', error);
+      console.error('❌ Upload floor plan error:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to upload floor plan'
@@ -802,15 +846,18 @@ class PropertyController {
     try {
       const { photoId } = req.params;
 
-      const [photos]: any = await db.query(
-        `SELECT pp.*, p.created_by 
+      console.log(`🗑️ Удаление фото #${photoId}`);
+
+      // ИСПРАВЛЕНО: убрана деструктуризация
+      const photos: any = await db.query(
+        `SELECT pp.id, pp.photo_url, pp.property_id, p.created_by
          FROM property_photos pp
          JOIN properties p ON pp.property_id = p.id
          WHERE pp.id = ?`,
         [photoId]
       );
 
-      if (!photos || photos.length === 0 || photos[0].created_by !== req.admin?.id) {
+      if (!photos || photos.length === 0) {
         return res.status(404).json({
           success: false,
           message: 'Photo not found'
@@ -819,17 +866,28 @@ class PropertyController {
 
       const photo = photos[0];
 
+      if (photo.created_by !== req.admin?.id) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied'
+        });
+      }
+
+      const filePath = path.join(__dirname, '../../', photo.photo_url);
+      await fs.remove(filePath).catch((err) => {
+        console.error('Error removing file:', err);
+      });
+
       await db.query('DELETE FROM property_photos WHERE id = ?', [photoId]);
 
-      const photoPath = path.join(__dirname, '../../', photo.photo_url);
-      await fs.remove(photoPath).catch(() => {});
+      console.log(`✅ Фото #${photoId} удалено`);
 
       res.json({
         success: true,
         message: 'Photo deleted successfully'
       });
     } catch (error) {
-      console.error('Delete photo error:', error);
+      console.error('❌ Delete photo error:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to delete photo'
@@ -844,7 +902,8 @@ class PropertyController {
     try {
       const { propertyId } = req.params;
 
-      const [property]: any = await db.query(
+      // ИСПРАВЛЕНО: убрана деструктуризация
+      const property: any = await db.query(
         'SELECT id FROM properties WHERE id = ? AND created_by = ? AND deleted_at IS NULL',
         [propertyId, req.admin?.id]
       );
@@ -895,7 +954,8 @@ class PropertyController {
       const { propertyId } = req.params;
       const { seasonalPricing } = req.body;
 
-      const [property]: any = await connection.query(
+      // ИСПРАВЛЕНО: убрана деструктуризация
+      const property: any = await connection.query(
         'SELECT id FROM properties WHERE id = ? AND created_by = ? AND deleted_at IS NULL',
         [propertyId, req.admin?.id]
       );
@@ -908,15 +968,25 @@ class PropertyController {
         });
       }
 
-      // Удаляем старые записи
       await connection.query(
         'DELETE FROM property_pricing WHERE property_id = ?',
         [propertyId]
       );
 
-      // Добавляем новые записи
+      // ИСПРАВЛЕНО: Детальное логирование
       if (seasonalPricing && Array.isArray(seasonalPricing) && seasonalPricing.length > 0) {
+        console.log(`🔄 Сохранение ${seasonalPricing.length} сезонных периодов...`);
+        console.log('📊 Данные:', JSON.stringify(seasonalPricing, null, 2));
+        
         for (const season of seasonalPricing) {
+          console.log('📌 Обработка:', {
+            seasonType: season.seasonType,
+            startDate: season.startDate,
+            endDate: season.endDate,
+            pricePerNight: season.pricePerNight,
+            minimumNights: season.minimumNights
+          });
+          
           await connection.query(
             `INSERT INTO property_pricing 
              (property_id, season_type, start_date_recurring, end_date_recurring, price_per_night, minimum_nights, created_at)
@@ -931,6 +1001,7 @@ class PropertyController {
             ]
           );
         }
+        console.log('✅ Сезонные цены сохранены');
       }
 
       await connection.commit();
