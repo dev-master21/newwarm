@@ -894,7 +894,179 @@ class PropertyController {
       });
     }
   }
-
+    /**
+     * Обновление порядка фотографий
+     */
+    async updatePhotosOrder(req: AuthRequest, res: Response) {
+      try {
+        const { propertyId } = req.params;
+        const { photos } = req.body; // массив { id, sort_order }
+    
+        console.log(`🔄 Обновление порядка фотографий для объекта #${propertyId}`);
+    
+        const property: any = await db.query(
+          'SELECT id FROM properties WHERE id = ? AND created_by = ? AND deleted_at IS NULL',
+          [propertyId, req.admin?.id]
+        );
+    
+        if (!property || property.length === 0) {
+          return res.status(404).json({
+            success: false,
+            message: 'Property not found'
+          });
+        }
+    
+        // Обновляем порядок для каждой фотографии
+        for (const photo of photos) {
+          await db.query(
+            'UPDATE property_photos SET sort_order = ? WHERE id = ? AND property_id = ?',
+            [photo.sort_order, photo.id, propertyId]
+          );
+        }
+    
+        console.log(`✅ Порядок ${photos.length} фотографий обновлен`);
+    
+        res.json({
+          success: true,
+          message: 'Photos order updated successfully'
+        });
+      } catch (error) {
+        console.error('Update photos order error:', error);
+        res.status(500).json({
+          success: false,
+          message: 'Failed to update photos order'
+        });
+      }
+    }
+    
+    /**
+     * Обновление категории фотографии
+     */
+    async updatePhotoCategory(req: AuthRequest, res: Response) {
+      try {
+        const { photoId } = req.params;
+        const { category } = req.body;
+    
+        console.log(`📁 Обновление категории фото #${photoId} на "${category}"`);
+    
+        const photos: any = await db.query(
+          `SELECT pp.id, pp.property_id, p.created_by
+           FROM property_photos pp
+           JOIN properties p ON pp.property_id = p.id
+           WHERE pp.id = ?`,
+          [photoId]
+        );
+    
+        if (!photos || photos.length === 0) {
+          return res.status(404).json({
+            success: false,
+            message: 'Photo not found'
+          });
+        }
+    
+        const photo = photos[0];
+    
+        if (photo.created_by !== req.admin?.id) {
+          return res.status(403).json({
+            success: false,
+            message: 'Access denied'
+          });
+        }
+    
+        await db.query(
+          'UPDATE property_photos SET category = ? WHERE id = ?',
+          [category || null, photoId]
+        );
+    
+        console.log(`✅ Категория фото #${photoId} обновлена`);
+    
+        res.json({
+          success: true,
+          message: 'Photo category updated successfully'
+        });
+      } catch (error) {
+        console.error('Update photo category error:', error);
+        res.status(500).json({
+          success: false,
+          message: 'Failed to update photo category'
+        });
+      }
+    }
+    
+    /**
+     * Установка главной фотографии
+     */
+    async setPrimaryPhoto(req: AuthRequest, res: Response) {
+      try {
+        const { photoId } = req.params;
+        const { scope } = req.body; // 'global' или 'category'
+    
+        console.log(`⭐ Установка главной фотографии #${photoId} (scope: ${scope})`);
+    
+        const photos: any = await db.query(
+          `SELECT pp.id, pp.property_id, pp.category, p.created_by
+           FROM property_photos pp
+           JOIN properties p ON pp.property_id = p.id
+           WHERE pp.id = ?`,
+          [photoId]
+        );
+    
+        if (!photos || photos.length === 0) {
+          return res.status(404).json({
+            success: false,
+            message: 'Photo not found'
+          });
+        }
+    
+        const photo = photos[0];
+    
+        if (photo.created_by !== req.admin?.id) {
+          return res.status(403).json({
+            success: false,
+            message: 'Access denied'
+          });
+        }
+    
+        if (scope === 'global') {
+          // Убираем is_primary у всех фото объекта
+          await db.query(
+            'UPDATE property_photos SET is_primary = FALSE WHERE property_id = ?',
+            [photo.property_id]
+          );
+          
+          // Устанавливаем is_primary для выбранного фото
+          await db.query(
+            'UPDATE property_photos SET is_primary = TRUE WHERE id = ?',
+            [photoId]
+          );
+        } else if (scope === 'category') {
+          // Убираем is_primary у всех фото в категории
+          await db.query(
+            'UPDATE property_photos SET is_primary = FALSE WHERE property_id = ? AND category = ?',
+            [photo.property_id, photo.category]
+          );
+          
+          // Устанавливаем is_primary для выбранного фото
+          await db.query(
+            'UPDATE property_photos SET is_primary = TRUE WHERE id = ?',
+            [photoId]
+          );
+        }
+    
+        console.log(`✅ Главная фотография установлена (scope: ${scope})`);
+    
+        res.json({
+          success: true,
+          message: 'Primary photo set successfully'
+        });
+      } catch (error) {
+        console.error('Set primary photo error:', error);
+        res.status(500).json({
+          success: false,
+          message: 'Failed to set primary photo'
+        });
+      }
+    }
   /**
    * Получение seasonal pricing для объекта
    */

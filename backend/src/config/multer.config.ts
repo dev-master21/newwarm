@@ -52,7 +52,8 @@ const imageFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterC
 export const uploadPropertyPhotos = multer({
   storage: propertyPhotoStorage,
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB
+    fileSize: 50 * 1024 * 1024, // 50MB на файл
+    files: 50 // максимум 50 файлов за раз
   },
   fileFilter: imageFilter
 });
@@ -60,7 +61,7 @@ export const uploadPropertyPhotos = multer({
 export const uploadFloorPlan = multer({
   storage: floorPlanStorage,
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB
+    fileSize: 50 * 1024 * 1024 // 50MB
   },
   fileFilter: imageFilter
 });

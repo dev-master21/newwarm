@@ -37,6 +37,16 @@ router.post(
   propertyController.uploadFloorPlan
 );
 
+// Photos management
+router.post(
+  '/properties/:propertyId/photos',
+  uploadPropertyPhotos.array('photos', 50),
+  propertyController.uploadPhotos
+);
+
+router.put('/properties/:propertyId/photos/order', propertyController.updatePhotosOrder);
+router.patch('/photos/:photoId/category', propertyController.updatePhotoCategory);
+router.patch('/photos/:photoId/primary', propertyController.setPrimaryPhoto);
 router.delete('/photos/:photoId', propertyController.deletePhoto);
 
 // Calendar
