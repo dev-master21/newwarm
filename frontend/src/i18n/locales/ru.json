@@ -47,7 +47,9 @@
     "showLess": "Показать меньше",
     "previous": "Предыдущий",
     "characters": "символов",
-    "select": "Выберите"
+    "select": "Выберите",
+    "sqm": "кв.м",
+    "languageChanged": "Язык изменён"
   },
   "admin": {
    "photosEditor": {
@@ -1206,10 +1208,29 @@
       "settings": "Настройки"
     }
   },
+  "map": {
+  "title": "Карта объектов",
+  "loading": "Загрузка...",
+  "loadingProperties": "Загружаем объекты...",
+  "propertiesCount": "{{count}} объектов",
+  "noProperties": "Объекты не найдены",
+  "properties": "объектов",
+  "noPropertiesDescription": "На данный момент нет объектов с координатами на карте",
+  "modal": {
+    "perNight": "за ночь",
+    "priceOnRequest": "Цена по запросу",
+    "viewDetails": "Подробнее об объекте"
+  },
+  "errors": {
+    "apiKeyMissing": "API ключ Google Maps не найден",
+    "loadFailed": "Не удалось загрузить карту",
+    "propertiesLoadFailed": "Не удалось загрузить объекты"
+  }
+},
   "hero": {
     "title": "Роскошные виллы на Пхукете",
     "subtitle": "Откройте для себя идеальное сочетание комфорта и элегантности",
-    "searchButton": "Найдите свою идеальную виллу",
+    "searchButton": "Найди виллу своей мечты",
     "altTitle": "Найдите свой идеальный дом в Таиланде",
     "altSubtitle": "Эксклюзивные предложения по недвижимости в лучших локациях",
     "search": "Поиск недвижимости",
@@ -1217,7 +1238,8 @@
     "rent": "Аренда",
     "location": "Локация",
     "propertyType": "Тип недвижимости",
-    "priceRange": "Ценовой диапазон"
+    "priceRange": "Ценовой диапазон",
+    "viewOnMap": "Посмотреть на карте"
   },
   "featured": {
     "title": "Избранные роскошные виллы",

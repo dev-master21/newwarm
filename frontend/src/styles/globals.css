@@ -247,3 +247,47 @@ section {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* ========================================
+   Google Maps - Скрытие элементов управления
+   ======================================== */
+
+/* Скрываем кнопки управления (zoom, street view и т.д.) */
+.gmnoprint {
+  display: none !important;
+}
+
+/* Скрываем copyright и attribution внизу карты */
+.gm-style-cc {
+  display: none !important;
+}
+
+/* Дополнительные классы для более полного скрытия */
+.gm-style .gm-style-cc {
+  display: none !important;
+}
+
+/* Скрываем сообщение "Report a map error" */
+.gm-style-cc + div {
+  display: none !important;
+}
+
+/* Скрываем кнопку "Keyboard shortcuts" */
+.gm-style-cc + button {
+  display: none !important;
+}
+
+/* Скрываем все элементы с классом gm-control-active */
+.gm-control-active {
+  display: none !important;
+}
+
+/* Скрываем сообщение об условиях использования */
+[href^="https://www.google.com/intl"] {
+  display: none !important;
+}
+
+/* Скрываем ссылки на Google Terms of Service */
+a[href*="google.com/help/terms_maps"] {
+  display: none !important;
+}

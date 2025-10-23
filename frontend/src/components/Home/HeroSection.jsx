@@ -1,10 +1,11 @@
 import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
-import { HiSearch, HiPlay } from 'react-icons/hi'
+import { HiSearch, HiPlay, HiMap } from 'react-icons/hi'
 import { Swiper, SwiperSlide } from 'swiper/react'
 import { Autoplay, Pagination, EffectFade } from 'swiper/modules'
 import VideoPlayer from '../common/VideoPlayer'
+import PropertyMapView from '../Map/PropertyMapView'
 import 'swiper/css'
 import 'swiper/css/pagination'
 import 'swiper/css/effect-fade'
@@ -12,6 +13,7 @@ import 'swiper/css/effect-fade'
 const HeroSection = ({ onSearchClick }) => {
   const { t } = useTranslation()
   const [videoModalOpen, setVideoModalOpen] = useState(false)
+  const [isMapOpen, setIsMapOpen] = useState(false)
 
   const slides = [
     {
@@ -85,44 +87,93 @@ const HeroSection = ({ onSearchClick }) => {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.6, delay: 0.8 }}
-                        className="flex flex-col sm:flex-row gap-4 justify-center items-center"
+                        className="flex flex-col items-center gap-6"
                       >
-                        <div className="hover-scale-container">
-                          <motion.button
-                            onClick={onSearchClick}
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            transition={{ duration: 0.2 }}
-                            className="inline-flex items-center space-x-3 px-8 py-4 
-                                     bg-red-600 hover:bg-red-700 text-white text-lg 
-                                     font-medium rounded-full shadow-xl 
-                                     transition-colors duration-300"
-                          >
-                            <HiSearch className="w-6 h-6 flex-shrink-0" />
-                            <span>{t('hero.searchButton')}</span>
-                          </motion.button>
+                        {/* Main Buttons */}
+                        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                          {/* Search Button */}
+                          <div className="hover-scale-container">
+                            <motion.button
+                              onClick={onSearchClick}
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              transition={{ duration: 0.2 }}
+                              className="relative inline-flex items-center space-x-3 px-8 py-4 
+                                       bg-gradient-to-r from-red-600 to-pink-600
+                                       hover:from-red-700 hover:to-pink-700 text-white text-lg 
+                                       font-semibold rounded-full shadow-2xl hover:shadow-red-500/50
+                                       transition-all duration-300 overflow-hidden"
+                            >
+                              {/* Animated Background Effect */}
+                              <motion.div
+                                className="absolute inset-0 bg-gradient-to-r from-pink-600 to-red-600"
+                                initial={{ x: '-100%' }}
+                                whileHover={{ x: '100%' }}
+                                transition={{ duration: 0.6 }}
+                              />
+                              
+                              <HiSearch className="w-6 h-6 flex-shrink-0 relative z-10" />
+                              <span className="relative z-10">{t('hero.searchButton')}</span>
+                            </motion.button>
+                          </div>
+                          
+                          {/* Map Button (Previously Video Button) */}
+                          <div className="hover-scale-container">
+                            <motion.button
+                              onClick={() => setIsMapOpen(true)}
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              transition={{ duration: 0.2 }}
+                              className="inline-flex items-center space-x-3 px-8 py-4 
+                                       bg-gradient-to-r from-blue-500 to-indigo-600
+                                       hover:from-blue-600 hover:to-indigo-700
+                                       text-white rounded-full font-semibold text-lg 
+                                       transition-all duration-300 border-2 border-white/30
+                                       hover:border-white/50 shadow-2xl hover:shadow-blue-500/50"
+                            >
+                              <HiMap className="w-6 h-6 flex-shrink-0" />
+                              <span>{t('hero.viewOnMap')}</span>
+                            </motion.button>
+                          </div>
                         </div>
-                        
-                        <div className="hover-scale-container">
-                          <motion.button
-                            onClick={() => setVideoModalOpen(true)}
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            transition={{ duration: 0.2 }}
-                            className="inline-flex items-center space-x-3 px-8 py-4 
-                                     bg-white/10 backdrop-blur-md hover:bg-white/20 
-                                     text-white rounded-full font-medium text-lg 
-                                     transition-colors duration-300 border border-white/30"
-                          >
-                            <HiPlay className="w-6 h-6 flex-shrink-0" />
-                            <span>{t('common.watchVideo') || 'Watch Video'}</span>
-                          </motion.button>
-                        </div>
+
+                        {/* Video Button - Icon Below */}
+                        <motion.button
+                          onClick={() => setVideoModalOpen(true)}
+                          whileHover={{ scale: 1.1, y: -2 }}
+                          whileTap={{ scale: 0.95 }}
+                          transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                          className="group flex items-center space-x-2 text-white/90 hover:text-white
+                                   transition-all duration-300"
+                          title={t('common.watchVideo') || 'Watch Video'}
+                        >
+                          <div className="relative flex items-center justify-center">
+                            {/* Animated Circle */}
+                            <motion.div
+                              className="absolute w-12 h-12 rounded-full border-2 border-white/50"
+                              animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0, 0.5] }}
+                              transition={{ duration: 2, repeat: Infinity }}
+                            />
+                            
+                            {/* Play Icon Circle */}
+                            <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full 
+                                          flex items-center justify-center group-hover:bg-white/30
+                                          transition-all duration-300 border-2 border-white/50
+                                          group-hover:border-white shadow-lg">
+                              <HiPlay className="w-6 h-6 ml-0.5" />
+                            </div>
+                          </div>
+                          
+                          <span className="text-sm font-medium uppercase tracking-wider">
+                            {t('common.watchVideo') || 'Watch Video'}
+                          </span>
+                        </motion.button>
                       </motion.div>
                     </motion.div>
                   </div>
                 </div>
 
+                {/* Scroll Down Indicator */}
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -148,14 +199,20 @@ const HeroSection = ({ onSearchClick }) => {
         </Swiper>
       </section>
 
-      {/* Custom Video Player Modal - передаем путь к видео */}
+      {/* Video Player Modal */}
       {videoModalOpen && (
         <VideoPlayer
-          videoUrl="/video.mp4"  // Путь к вашему локальному видео
+          videoUrl="/video.mp4"
           isOpen={videoModalOpen}
           onClose={() => setVideoModalOpen(false)}
         />
       )}
+
+      {/* Property Map View */}
+      <PropertyMapView 
+        isOpen={isMapOpen} 
+        onClose={() => setIsMapOpen(false)} 
+      />
     </>
   )
 }

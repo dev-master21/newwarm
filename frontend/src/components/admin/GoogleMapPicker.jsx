@@ -3,14 +3,18 @@ import React, { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import { HiCheckCircle, HiXCircle, HiLocationMarker } from 'react-icons/hi'
+import darkMapTheme from '../../styles/darkMapTheme.json'
+import lightMapTheme from '../../styles/lightMapTheme.json'
 
 const GoogleMapPicker = ({ coordinates, onConfirm, theme }) => {
   const { t } = useTranslation()
   const mapRef = useRef(null)
+  const mapContainerRef = useRef(null)
   const [map, setMap] = useState(null)
   const [marker, setMarker] = useState(null)
   const [isLoaded, setIsLoaded] = useState(false)
   const [currentCoords, setCurrentCoords] = useState(coordinates)
+  const [isDomReady, setIsDomReady] = useState(false)
 
   // Load Google Maps API
   useEffect(() => {
@@ -22,7 +26,7 @@ const GoogleMapPicker = ({ coordinates, onConfirm, theme }) => {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
     if (!apiKey) {
       console.error('Google Maps API key not found')
-      setIsLoaded(true) // Set to true to show fallback
+      setIsLoaded(true)
       return
     }
 
@@ -33,7 +37,7 @@ const GoogleMapPicker = ({ coordinates, onConfirm, theme }) => {
     script.onload = () => setIsLoaded(true)
     script.onerror = () => {
       console.error('Failed to load Google Maps API')
-      setIsLoaded(true) // Set to true to show fallback
+      setIsLoaded(true)
     }
     document.head.appendChild(script)
 
@@ -44,92 +48,35 @@ const GoogleMapPicker = ({ coordinates, onConfirm, theme }) => {
     }
   }, [])
 
+  // Wait for DOM to be ready after animation
+  useEffect(() => {
+    if (!mapContainerRef.current) return
+
+    // Даём время на завершение анимации framer-motion
+    const timer = setTimeout(() => {
+      if (mapContainerRef.current && mapRef.current) {
+        setIsDomReady(true)
+      }
+    }, 100)
+
+    return () => clearTimeout(timer)
+  }, [])
+
   // Initialize map
   useEffect(() => {
-    if (!isLoaded || !mapRef.current || !coordinates || !window.google) return
+    if (!isLoaded || !isDomReady || !mapRef.current || !coordinates || !window.google) return
+
+    // Проверяем, что элемент действительно в DOM
+    if (!document.body.contains(mapRef.current)) {
+      console.warn('Map container not in DOM yet')
+      return
+    }
 
     try {
-      // Map styles based on theme
-      const mapStyles = theme === 'dark' ? [
-        { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
-        { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
-        { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
-        {
-          featureType: "administrative.locality",
-          elementType: "labels.text.fill",
-          stylers: [{ color: "#d59563" }],
-        },
-        {
-          featureType: "poi",
-          elementType: "labels.text.fill",
-          stylers: [{ color: "#d59563" }],
-        },
-        {
-          featureType: "poi.park",
-          elementType: "geometry",
-          stylers: [{ color: "#263c3f" }],
-        },
-        {
-          featureType: "poi.park",
-          elementType: "labels.text.fill",
-          stylers: [{ color: "#6b9a76" }],
-        },
-        {
-          featureType: "road",
-          elementType: "geometry",
-          stylers: [{ color: "#38414e" }],
-        },
-        {
-          featureType: "road",
-          elementType: "geometry.stroke",
-          stylers: [{ color: "#212a37" }],
-        },
-        {
-          featureType: "road",
-          elementType: "labels.text.fill",
-          stylers: [{ color: "#9ca5b3" }],
-        },
-        {
-          featureType: "road.highway",
-          elementType: "geometry",
-          stylers: [{ color: "#746855" }],
-        },
-        {
-          featureType: "road.highway",
-          elementType: "geometry.stroke",
-          stylers: [{ color: "#1f2835" }],
-        },
-        {
-          featureType: "road.highway",
-          elementType: "labels.text.fill",
-          stylers: [{ color: "#f3d19c" }],
-        },
-        {
-          featureType: "transit",
-          elementType: "geometry",
-          stylers: [{ color: "#2f3948" }],
-        },
-        {
-          featureType: "transit.station",
-          elementType: "labels.text.fill",
-          stylers: [{ color: "#d59563" }],
-        },
-        {
-          featureType: "water",
-          elementType: "geometry",
-          stylers: [{ color: "#17263c" }],
-        },
-        {
-          featureType: "water",
-          elementType: "labels.text.fill",
-          stylers: [{ color: "#515c6d" }],
-        },
-        {
-          featureType: "water",
-          elementType: "labels.text.stroke",
-          stylers: [{ color: "#17263c" }],
-        },
-      ] : []
+      // Выбираем тему карты в зависимости от текущей темы
+      const mapStyles = theme === 'dark' ? darkMapTheme : lightMapTheme
+
+      console.log('Applying map theme:', theme, 'Styles count:', mapStyles.length)
 
       const mapInstance = new window.google.maps.Map(mapRef.current, {
         center: { lat: coordinates.lat, lng: coordinates.lng },
@@ -170,7 +117,16 @@ const GoogleMapPicker = ({ coordinates, onConfirm, theme }) => {
     } catch (error) {
       console.error('Error initializing map:', error)
     }
-  }, [isLoaded, coordinates, theme, t])
+  }, [isLoaded, isDomReady, coordinates, theme, t])
+
+  // Update map styles when theme changes
+  useEffect(() => {
+    if (map && window.google) {
+      const mapStyles = theme === 'dark' ? darkMapTheme : lightMapTheme
+      map.setOptions({ styles: mapStyles })
+      console.log('Map theme updated to:', theme)
+    }
+  }, [map, theme])
 
   if (!coordinates) {
     return null
@@ -178,6 +134,7 @@ const GoogleMapPicker = ({ coordinates, onConfirm, theme }) => {
 
   return (
     <motion.div
+      ref={mapContainerRef}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="space-y-4"
@@ -206,7 +163,7 @@ const GoogleMapPicker = ({ coordinates, onConfirm, theme }) => {
           className="w-full h-96"
           style={{ minHeight: '400px' }}
         />
-        {(!isLoaded || !window.google) && (
+        {(!isLoaded || !window.google || !isDomReady) && (
           <div className="absolute inset-0 flex items-center justify-center 
                         bg-gray-100 dark:bg-gray-800">
             <div className="text-center p-6">
