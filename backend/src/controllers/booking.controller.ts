@@ -29,21 +29,28 @@ class BookingController {
         notes
       } = req.body;
 
-      // Проверка доступности (проверяем обе таблицы)
+      // ИСПРАВЛЕНО: Проверка доступности - первый день периода (check_in) не проверяем,
+      // так как это день выезда для предыдущего бронирования
       const calendarBlocks: any = await connection.query(
         `SELECT id FROM property_calendar 
          WHERE property_id = ? 
-         AND blocked_date BETWEEN ? AND ?`,
+         AND blocked_date > ? AND blocked_date < ?`,
         [property_id, check_in, check_out]
       );
 
+      // ИСПРАВЛЕНО: Проверка пересечения бронирований
+      // Период занят если существует бронирование где:
+      // - его check_in попадает ВНУТРЬ нашего периода (но не на границы)
+      // - или наш check_in попадает ВНУТРЬ его периода (но не на границы)
       const existingBookings: any = await connection.query(
         `SELECT id FROM property_bookings 
          WHERE property_id = ? 
-         AND ((check_in_date BETWEEN ? AND ?) 
-         OR (check_out_date BETWEEN ? AND ?) 
-         OR (check_in_date <= ? AND check_out_date >= ?))`,
-        [property_id, check_in, check_out, check_in, check_out, check_in, check_out]
+         AND status != 'cancelled'
+         AND (
+           (check_in_date > ? AND check_in_date < ?) 
+           OR (? > check_in_date AND ? < check_out_date)
+         )`,
+        [property_id, check_in, check_out, check_in, check_in]
       );
 
       if (calendarBlocks.length > 0 || existingBookings.length > 0) {
@@ -79,16 +86,18 @@ class BookingController {
 
       const bookingId = result.insertId;
 
-      // Блокируем даты в календаре
+      // ИСПРАВЛЕНО: Блокируем даты в календаре
+      // НЕ включаем день check_out, так как это день выезда (свободен для нового бронирования)
       const checkInDate = new Date(check_in);
       const checkOutDate = new Date(check_out);
       
-      for (let date = new Date(checkInDate); date <= checkOutDate; date.setDate(date.getDate() + 1)) {
+      for (let date = new Date(checkInDate); date < checkOutDate; date.setDate(date.getDate() + 1)) {
         const dateStr = date.toISOString().split('T')[0];
         await connection.query(
           `INSERT INTO property_calendar (property_id, blocked_date, reason) 
-           VALUES (?, ?, ?)`,
-          [property_id, dateStr, `Booking ${bookingId}`]
+           VALUES (?, ?, ?)
+           ON DUPLICATE KEY UPDATE reason = ?`,
+          [property_id, dateStr, `Booking ${bookingId}`, `Booking ${bookingId}`]
         );
       }
 
@@ -112,7 +121,7 @@ class BookingController {
       connection.release();
     }
   }
-
+  
   /**
    * Проверка доступности объекта
    */
@@ -120,23 +129,25 @@ class BookingController {
     try {
       const { property_id, check_in, check_out } = req.query;
 
-      // Проверяем календарь
+      // ИСПРАВЛЕНО: Проверяем календарь - НЕ включаем границы
+      // Первый день (check_in) - это день выезда предыдущего бронирования
       const calendarBlocks: any = await db.query(
         `SELECT id FROM property_calendar 
          WHERE property_id = ? 
-         AND blocked_date BETWEEN ? AND ?`,
+         AND blocked_date > ? AND blocked_date < ?`,
         [property_id, check_in, check_out]
       );
 
-      // Проверяем бронирования
+      // ИСПРАВЛЕНО: Проверяем пересечение с существующими бронированиями
       const bookings: any = await db.query(
         `SELECT id FROM property_bookings 
          WHERE property_id = ? 
          AND status != 'cancelled'
-         AND ((check_in_date BETWEEN ? AND ?) 
-         OR (check_out_date BETWEEN ? AND ?) 
-         OR (check_in_date <= ? AND check_out_date >= ?))`,
-        [property_id, check_in, check_out, check_in, check_out, check_in, check_out]
+         AND (
+           (check_in_date > ? AND check_in_date < ?) 
+           OR (? > check_in_date AND ? < check_out_date)
+         )`,
+        [property_id, check_in, check_out, check_in, check_in]
       );
 
       res.json({
