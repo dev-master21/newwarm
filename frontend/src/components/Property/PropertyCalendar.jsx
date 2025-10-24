@@ -2,12 +2,21 @@ import React, { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import { HiChevronLeft, HiChevronRight, HiCalendar, HiX } from 'react-icons/hi'
+import {
+  getTodayInBangkok,
+  toDateStrBangkok,
+  getDaysInMonthBangkok,
+  isPastDateBangkok,
+  formatDateForDisplay,
+  calculateNights
+} from '../../utils/dateUtils'
 
 const PropertyCalendar = ({ blockedDates = [], bookings = [], onDateRangeSelect }) => {
   const { t } = useTranslation()
-  const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [currentMonth, setCurrentMonth] = useState(getTodayInBangkok())
   const [selectedRange, setSelectedRange] = useState({ start: null, end: null })
   const [hoveredDate, setHoveredDate] = useState(null)
+  const [freeFirstDays, setFreeFirstDays] = useState(new Set())
 
   const monthNames = [
     'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
@@ -16,102 +25,197 @@ const PropertyCalendar = ({ blockedDates = [], bookings = [], onDateRangeSelect 
 
   const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 
-  // Получаем дни месяца
-  const getDaysInMonth = () => {
-    const year = currentMonth.getFullYear()
-    const month = currentMonth.getMonth()
-    const firstDay = new Date(year, month, 1)
-    const lastDay = new Date(year, month + 1, 0)
-    const daysInMonth = lastDay.getDate()
-    
-    // Начало недели (понедельник = 1, воскресенье = 0)
-    let firstDayOfWeek = firstDay.getDay()
-    firstDayOfWeek = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1
-
-    const days = []
-    
-    // Пустые ячейки в начале
-    for (let i = 0; i < firstDayOfWeek; i++) {
-      days.push(null)
+  // Утилита: извлекаем ТОЛЬКО YYYY-MM-DD
+  const extractDateStr = (dateValue) => {
+    if (!dateValue) return null
+    const str = String(dateValue)
+    // Берем первые 10 символов если формат YYYY-MM-DD
+    if (str.match(/^\d{4}-\d{2}-\d{2}/)) {
+      return str.substring(0, 10)
     }
-
-    // Дни месяца
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(year, month, day)
-      days.push({
-        day,
-        date,
-        dateStr: date.toISOString().split('T')[0]
-      })
-    }
-
-    return days
+    return null
   }
 
-  // Проверка, занята ли дата
+  // Утилита: добавить N дней к дате (работа со строками)
+  const addDays = (dateStr, days) => {
+    const [year, month, day] = dateStr.split('-').map(Number)
+    const date = new Date(Date.UTC(year, month - 1, day))
+    date.setUTCDate(date.getUTCDate() + days)
+    
+    const y = date.getUTCFullYear()
+    const m = String(date.getUTCMonth() + 1).padStart(2, '0')
+    const d = String(date.getUTCDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }
+
+  // Утилита: разница между датами в днях
+  const daysDiff = (date1Str, date2Str) => {
+    const [y1, m1, d1] = date1Str.split('-').map(Number)
+    const [y2, m2, d2] = date2Str.split('-').map(Number)
+    
+    const time1 = Date.UTC(y1, m1 - 1, d1)
+    const time2 = Date.UTC(y2, m2 - 1, d2)
+    
+    return Math.round((time2 - time1) / (1000 * 60 * 60 * 24))
+  }
+
+  // ГЛАВНЫЙ useEffect
+  useEffect(() => {
+    console.log('🔄 ========== НАЧАЛО АНАЛИЗА ==========')
+    
+    // 1. Собираем ВСЕ даты
+    const allDatesSet = new Set()
+    
+    console.log('📥 Исходные blockedDates:', blockedDates)
+    
+    // Из blockedDates
+    blockedDates.forEach((block, idx) => {
+      const dateStr = extractDateStr(block.blocked_date || block.date || block)
+      if (dateStr) {
+        allDatesSet.add(dateStr)
+        if (idx < 5) console.log(`  📌 blockedDate[${idx}]:`, block, '→', dateStr)
+      }
+    })
+
+    // Из bookings
+    bookings.forEach(booking => {
+      const checkIn = extractDateStr(booking.check_in_date || booking.check_in)
+      const checkOut = extractDateStr(booking.check_out_date || booking.check_out)
+      
+      if (checkIn && checkOut) {
+        let current = checkIn
+        while (current <= checkOut) {
+          allDatesSet.add(current)
+          current = addDays(current, 1)
+        }
+      }
+    })
+
+    // 2. Сортируем
+    const sortedDates = Array.from(allDatesSet).sort()
+    console.log('📅 ВСЕ даты отсортированные:', sortedDates)
+
+    if (sortedDates.length === 0) {
+      console.log('⚠️ Нет дат')
+      setFreeFirstDays(new Set())
+      return
+    }
+
+    // 3. Находим периоды
+    const periods = []
+    let currentPeriod = [sortedDates[0]]
+
+    for (let i = 1; i < sortedDates.length; i++) {
+      const diff = daysDiff(sortedDates[i - 1], sortedDates[i])
+      
+      console.log(`  🔍 Сравниваю ${sortedDates[i - 1]} и ${sortedDates[i]}: разница ${diff} дней`)
+      
+      if (diff === 1) {
+        currentPeriod.push(sortedDates[i])
+      } else {
+        periods.push([...currentPeriod])
+        console.log(`  ✅ Период завершен: ${currentPeriod[0]} → ${currentPeriod[currentPeriod.length - 1]}`)
+        currentPeriod = [sortedDates[i]]
+      }
+    }
+    
+    if (currentPeriod.length > 0) {
+      periods.push(currentPeriod)
+      console.log(`  ✅ Последний период: ${currentPeriod[0]} → ${currentPeriod[currentPeriod.length - 1]}`)
+    }
+
+    console.log(`📊 Всего периодов: ${periods.length}`)
+
+    // 4. Первые дни периодов = СВОБОДНЫ
+    const firstDaysSet = new Set()
+    
+    periods.forEach((period, index) => {
+      const firstDay = period[0]
+      const lastDay = period[period.length - 1]
+      
+      firstDaysSet.add(firstDay)
+      
+      console.log(`🏨 Период ${index + 1}:`)
+      console.log(`   Даты: ${firstDay} → ${lastDay} (${period.length} дней)`)
+      console.log(`   🟢 Первый день (СВОБОДЕН): ${firstDay}`)
+      console.log(`   🔴 Последний день (ЗАНЯТ): ${lastDay}`)
+    })
+
+    console.log('🎯 ИТОГО СВОБОДНЫЕ (первые дни периодов):', Array.from(firstDaysSet))
+    console.log('🔄 ========== КОНЕЦ АНАЛИЗА ==========')
+    
+    setFreeFirstDays(firstDaysSet)
+
+  }, [blockedDates, bookings])
+
+  // Проверка блокировки
   const isDateBlocked = (dateStr) => {
     if (!dateStr) return false
 
-    // Проверяем календарные блокировки
-    if (blockedDates.some(block => block.date === dateStr)) {
-      return true
+    const cleanDateStr = extractDateStr(dateStr)
+    if (!cleanDateStr) return false
+
+    // 1. Если первый день периода - СВОБОДЕН
+    if (freeFirstDays.has(cleanDateStr)) {
+      return false
     }
 
-    // Проверяем бронирования
-    return bookings.some(booking => {
-      const checkIn = new Date(booking.check_in_date)
-      const checkOut = new Date(booking.check_out_date)
-      const currentDate = new Date(dateStr)
-      return currentDate >= checkIn && currentDate <= checkOut
+    // 2. Проверяем blockedDates
+    const inBlocked = blockedDates.some(block => {
+      const blockDate = extractDateStr(block.blocked_date || block.date || block)
+      return blockDate === cleanDateStr
     })
+
+    if (inBlocked) return true
+
+    // 3. Проверяем bookings
+    const inBookings = bookings.some(booking => {
+      const checkIn = extractDateStr(booking.check_in_date || booking.check_in)
+      const checkOut = extractDateStr(booking.check_out_date || booking.check_out)
+      
+      if (!checkIn || !checkOut) return false
+      
+      return cleanDateStr >= checkIn && cleanDateStr <= checkOut
+    })
+
+    return inBookings
   }
 
-  // Проверка, является ли дата прошлой
-  const isPastDate = (dateStr) => {
-    if (!dateStr) return false
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    return new Date(dateStr) < today
-  }
-
-  // Проверка, находится ли дата в выбранном диапазоне
   const isInSelectedRange = (dateStr) => {
     if (!selectedRange.start || !dateStr) return false
     
-    const date = new Date(dateStr)
-    const start = new Date(selectedRange.start)
-    const end = selectedRange.end ? new Date(selectedRange.end) : (hoveredDate ? new Date(hoveredDate) : null)
+    const start = selectedRange.start
+    const end = selectedRange.end || hoveredDate
 
     if (end) {
-      return date >= start && date <= end
+      return dateStr >= start && dateStr <= end
     }
     
     return dateStr === selectedRange.start
   }
 
-  // Обработка клика по дате
   const handleDateClick = (dateStr) => {
-    if (!dateStr || isDateBlocked(dateStr) || isPastDate(dateStr)) return
+    if (!dateStr || isDateBlocked(dateStr) || isPastDateBangkok(dateStr)) return
 
     if (!selectedRange.start) {
       setSelectedRange({ start: dateStr, end: null })
     } else if (!selectedRange.end) {
-      const start = new Date(selectedRange.start)
-      const end = new Date(dateStr)
+      let checkIn, checkOut
       
-      if (end < start) {
-        setSelectedRange({ start: dateStr, end: selectedRange.start })
+      if (dateStr < selectedRange.start) {
+        checkIn = dateStr
+        checkOut = selectedRange.start
       } else {
-        setSelectedRange({ start: selectedRange.start, end: dateStr })
+        checkIn = selectedRange.start
+        checkOut = dateStr
       }
 
-      // Вызываем callback
+      setSelectedRange({ start: checkIn, end: checkOut })
+
       if (onDateRangeSelect) {
+        console.log('📅 Выбран период:', checkIn, '-', checkOut)
         setTimeout(() => {
-          onDateRangeSelect({
-            checkIn: end < start ? dateStr : selectedRange.start,
-            checkOut: end < start ? selectedRange.start : dateStr
-          })
+          onDateRangeSelect({ checkIn, checkOut })
         }, 100)
       }
     } else {
@@ -119,13 +223,11 @@ const PropertyCalendar = ({ blockedDates = [], bookings = [], onDateRangeSelect 
     }
   }
 
-  // Очистка выбора
   const clearSelection = () => {
     setSelectedRange({ start: null, end: null })
     setHoveredDate(null)
   }
 
-  // Навигация по месяцам
   const goToPreviousMonth = () => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))
   }
@@ -135,14 +237,14 @@ const PropertyCalendar = ({ blockedDates = [], bookings = [], onDateRangeSelect 
   }
 
   const goToToday = () => {
-    setCurrentMonth(new Date())
+    setCurrentMonth(getTodayInBangkok())
   }
 
-  const days = getDaysInMonth()
+  const days = getDaysInMonthBangkok(currentMonth)
+  const todayStr = toDateStrBangkok(getTodayInBangkok())
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-      {/* Заголовок */}
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center space-x-2">
           <HiCalendar className="w-6 h-6 text-blue-500" />
@@ -160,7 +262,6 @@ const PropertyCalendar = ({ blockedDates = [], bookings = [], onDateRangeSelect 
         )}
       </div>
 
-      {/* Навигация по месяцам */}
       <div className="flex items-center justify-between mb-6">
         <button
           onClick={goToPreviousMonth}
@@ -189,7 +290,6 @@ const PropertyCalendar = ({ blockedDates = [], bookings = [], onDateRangeSelect 
         </button>
       </div>
 
-      {/* Дни недели */}
       <div className="grid grid-cols-7 gap-2 mb-2">
         {weekDays.map((day, index) => (
           <div
@@ -201,7 +301,6 @@ const PropertyCalendar = ({ blockedDates = [], bookings = [], onDateRangeSelect 
         ))}
       </div>
 
-      {/* Календарная сетка */}
       <div className="grid grid-cols-7 gap-2">
         {days.map((day, index) => {
           if (!day) {
@@ -209,9 +308,9 @@ const PropertyCalendar = ({ blockedDates = [], bookings = [], onDateRangeSelect 
           }
 
           const isBlocked = isDateBlocked(day.dateStr)
-          const isPast = isPastDate(day.dateStr)
+          const isPast = isPastDateBangkok(day.dateStr)
           const isSelected = isInSelectedRange(day.dateStr)
-          const isToday = day.dateStr === new Date().toISOString().split('T')[0]
+          const isToday = day.dateStr === todayStr
 
           return (
             <motion.button
@@ -246,7 +345,6 @@ const PropertyCalendar = ({ blockedDates = [], bookings = [], onDateRangeSelect 
         })}
       </div>
 
-      {/* Легенда */}
       <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
         <div className="flex flex-wrap gap-4 text-sm">
           <div className="flex items-center space-x-2">
@@ -268,7 +366,6 @@ const PropertyCalendar = ({ blockedDates = [], bookings = [], onDateRangeSelect 
         </div>
       </div>
 
-      {/* Информация о выбранном диапазоне */}
       {selectedRange.start && selectedRange.end && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -277,10 +374,10 @@ const PropertyCalendar = ({ blockedDates = [], bookings = [], onDateRangeSelect 
         >
           <p className="text-sm text-gray-700 dark:text-gray-300">
             <span className="font-semibold">{t('property.calendar.selectedDates')}:</span>{' '}
-            {new Date(selectedRange.start).toLocaleDateString('ru-RU')} - {new Date(selectedRange.end).toLocaleDateString('ru-RU')}
+            {formatDateForDisplay(selectedRange.start)} - {formatDateForDisplay(selectedRange.end)}
           </p>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            {Math.ceil((new Date(selectedRange.end) - new Date(selectedRange.start)) / (1000 * 60 * 60 * 24))} {t('property.calendar.nights')}
+            {calculateNights(selectedRange.start, selectedRange.end)} {t('property.calendar.nights')}
           </p>
         </motion.div>
       )}

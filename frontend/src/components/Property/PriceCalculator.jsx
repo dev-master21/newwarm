@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+// frontend/src/components/Property/PriceCalculator.jsx
+import React, { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import { HiX, HiCalculator, HiCurrencyDollar, HiCalendar, HiMoon, HiSparkles, HiChevronDown, HiCheckCircle, HiBan } from 'react-icons/hi'
@@ -6,22 +7,53 @@ import DatePicker from 'react-datepicker'
 import { propertyService } from '../../services/property.service'
 import toast from 'react-hot-toast'
 import 'react-datepicker/dist/react-datepicker.css'
+import { dateToLocalDateStr } from '../../utils/dateUtils'
 
-const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates = [] }) => {
+const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates = [], initialCheckIn = null, initialCheckOut = null }) => {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
-  const [checkIn, setCheckIn] = useState(null)
-  const [checkOut, setCheckOut] = useState(null)
+  const [checkIn, setCheckIn] = useState(initialCheckIn ? new Date(initialCheckIn) : null)
+  const [checkOut, setCheckOut] = useState(initialCheckOut ? new Date(initialCheckOut) : null)
   const [result, setResult] = useState(null)
   const [showBreakdown, setShowBreakdown] = useState(false)
 
-  // Проверка, доступна ли дата
+  // Обновление дат при изменении пропсов
+  useEffect(() => {
+    if (initialCheckIn) {
+      setCheckIn(new Date(initialCheckIn))
+    }
+    if (initialCheckOut) {
+      setCheckOut(new Date(initialCheckOut))
+    }
+  }, [initialCheckIn, initialCheckOut])
+
+  // Автоматический расчет при открытии с датами
+  useEffect(() => {
+    console.log('📊 PriceCalculator useEffect:', { 
+      isOpen, 
+      initialCheckIn, 
+      initialCheckOut, 
+      checkIn, 
+      checkOut 
+    })
+
+    if (isOpen && checkIn && checkOut) {
+      // Небольшая задержка для плавности анимации
+      const timer = setTimeout(() => {
+        console.log('🔄 Запускаем автоматический расчет')
+        handleCalculate()
+      }, 300)
+      return () => clearTimeout(timer)
+    }
+  }, [isOpen, checkIn, checkOut])
+
+  // Проверка, доступна ли дата - ИСПРАВЛЕНО
   const isDateAvailable = (date) => {
-    const dateStr = date.toISOString().split('T')[0]
+    const dateStr = dateToLocalDateStr(date)
     return !blockedDates.includes(dateStr)
   }
 
-  // Расчет стоимости
+  // Расчет стоимости - ИСПРАВЛЕНО
   const handleCalculate = async () => {
     if (!checkIn || !checkOut) {
       toast.error(t('property.priceCalculator.selectDates'))
@@ -30,10 +62,17 @@ const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates =
 
     try {
       setLoading(true)
+      
+      // ИСПРАВЛЕНО: используем dateToLocalDateStr вместо toISOString
+      const checkInStr = dateToLocalDateStr(checkIn)
+      const checkOutStr = dateToLocalDateStr(checkOut)
+      
+      console.log('💰 Расчет цены для периода:', checkInStr, '-', checkOutStr)
+      
       const response = await propertyService.calculatePrice(
         propertyId,
-        checkIn.toISOString().split('T')[0],
-        checkOut.toISOString().split('T')[0]
+        checkInStr,
+        checkOutStr
       )
 
       if (response.success) {
@@ -178,8 +217,8 @@ const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates =
                 transition={{ delay: 0.2 }}
               >
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                    <HiCalendar className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                    <HiMoon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                   </div>
                   <span>{t('property.priceCalculator.checkOut')}</span>
                 </label>
@@ -190,7 +229,7 @@ const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates =
                   filterDate={isDateAvailable}
                   dateFormat="dd.MM.yyyy"
                   className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 
-                           rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 
+                           rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 
                            text-gray-900 dark:text-white font-medium transition-all"
                   placeholderText={t('property.priceCalculator.selectCheckOut')}
                   calendarClassName="!shadow-2xl !rounded-2xl"
@@ -216,124 +255,103 @@ const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates =
               </motion.div>
             </div>
 
-            {/* Buttons */}
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="flex flex-col sm:flex-row gap-3"
+            {/* Calculate Button */}
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleCalculate}
+              disabled={!checkIn || !checkOut || loading}
+              className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 
+                       disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed
+                       text-white font-bold py-4 px-6 rounded-xl transition-all
+                       flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl
+                       transform disabled:transform-none"
             >
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleCalculate}
-                disabled={loading || !checkIn || !checkOut}
-                className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700
-                         disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed
-                         text-white font-semibold py-3.5 px-6 rounded-xl transition-all shadow-lg
-                         flex items-center justify-center space-x-2"
-              >
-                {loading ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <HiCalculator className="w-5 h-5" />
-                    <span>{t('property.priceCalculator.calculate')}</span>
-                  </>
-                )}
-              </motion.button>
-              
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleReset}
-                className="px-6 py-3.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600
-                         text-gray-700 dark:text-gray-300 font-semibold rounded-xl transition-all shadow-md"
-              >
-                {t('property.priceCalculator.reset')}
-              </motion.button>
-            </motion.div>
+              {loading ? (
+                <>
+                  <motion.div 
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
+                  />
+                  <span>{t('property.priceCalculator.calculating')}</span>
+                </>
+              ) : (
+                <>
+                  <HiSparkles className="w-5 h-5" />
+                  <span>{t('property.priceCalculator.calculate')}</span>
+                </>
+              )}
+            </motion.button>
 
-            {/* Result */}
+            {/* Results */}
             <AnimatePresence>
               {result && (
                 <motion.div
-                  initial={{ opacity: 0, y: 30, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -30, scale: 0.95 }}
-                  transition={{ type: "spring", duration: 0.6 }}
-                  className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700/50 dark:to-gray-800/50 
-                           rounded-2xl p-6 border-2 border-gray-200 dark:border-gray-600 shadow-lg"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.4 }}
+                  className="space-y-4"
                 >
-                  {/* Header */}
-                  <div className="flex items-center space-x-3 mb-6">
-                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
-                      <HiSparkles className="w-5 h-5 text-green-600 dark:text-green-400" />
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                      {t('property.priceCalculator.result')}
-                    </h3>
-                  </div>
-
-                  <div className="space-y-3">
-                    {/* Total Price - ЗЕЛЕНАЯ КАРТОЧКА */}
-                    <motion.div 
-                      initial={{ scale: 0.9 }}
-                      animate={{ scale: 1 }}
-                      className="bg-gradient-to-r from-green-500 to-green-600 p-6 rounded-2xl shadow-lg"
+                  {/* Availability Status */}
+                  {result.unavailableDates && result.unavailableDates.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 
+                               p-4 rounded-xl border-2 border-red-300 dark:border-red-700"
                     >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-green-100 text-sm font-medium mb-1">
-                            {t('property.priceCalculator.totalPrice')}
+                      <div className="flex items-start space-x-3">
+                        <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <HiBan className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-bold text-red-900 dark:text-red-100 mb-1">
+                            {t('property.priceCalculator.unavailableTitle')}
+                          </h4>
+                          <p className="text-sm text-red-800 dark:text-red-200">
+                            {t('property.priceCalculator.unavailableText')}
                           </p>
-                          <div className="flex items-baseline space-x-2">
-                            <span className="text-4xl font-bold text-white">
-                              ฿{Math.round(result.totalPrice).toLocaleString()}
+                          <div className="mt-2 flex items-center space-x-2">
+                            <span className="text-xs font-semibold px-2 py-1 bg-red-200 dark:bg-red-800 text-red-900 dark:text-red-100 rounded">
+                              {t('property.priceCalculator.unavailableDatesCount')}: {result.unavailableDates.length} {t('property.priceCalculator.daysOccupied')}
                             </span>
                           </div>
                         </div>
-                        <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
-                          <HiCurrencyDollar className="w-8 h-8 text-white" />
-                        </div>
                       </div>
                     </motion.div>
+                  )}
 
-                    {/* ДИСКЛЕЙМЕР О НЕДОСТУПНОСТИ */}
-                    {result.isAvailable === false && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3 }}
-                        className="bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 
-                                 p-5 rounded-2xl border-2 border-red-200 dark:border-red-800 shadow-md"
+                  {/* Price Summary */}
+                  <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 
+                                p-6 rounded-2xl border-2 border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                        {t('property.priceCalculator.totalPrice')}
+                      </span>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={handleReset}
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium"
                       >
-                        <div className="flex items-start space-x-4">
-                          <div className="flex-shrink-0 w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center">
-                            <span className="text-2xl">😔</span>
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="text-base font-bold text-red-900 dark:text-red-200 mb-2">
-                              {t('property.priceCalculator.unavailableTitle')}
-                            </h4>
-                            <p className="text-sm text-red-800 dark:text-red-300 leading-relaxed">
-                              {t('property.priceCalculator.unavailableText', { 
-                                propertyName: result.propertyName || property?.name || t('property.thisProperty')
-                              })}
-                            </p>
-                            {result.unavailableDates && result.unavailableDates.length > 0 && (
-                              <div className="mt-3 text-xs text-red-700 dark:text-red-400">
-                                <span className="font-semibold">{t('property.priceCalculator.unavailableDatesCount')}:</span> {result.unavailableDates.length}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
+                        {t('property.priceCalculator.reset')}
+                      </motion.button>
+                    </div>
+                    
+                    <motion.div
+                      initial={{ scale: 0.9 }}
+                      animate={{ scale: 1 }}
+                      className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r 
+                               from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 mb-4"
+                    >
+                      ฿{Math.round(result.totalPrice).toLocaleString()}
+                    </motion.div>
 
-                    {/* Nights & Average - КАРТОЧКИ */}
+                    {/* Additional Info */}
                     <div className="grid grid-cols-2 gap-3">
-                      <motion.div 
+                      <motion.div
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.1 }}
@@ -342,15 +360,15 @@ const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates =
                         <div className="flex items-center space-x-2 mb-2">
                           <HiMoon className="w-4 h-4 text-gray-400" />
                           <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">
-                            {t('property.priceCalculator.nights')}
+                            {t('property.priceCalculator.totalNights')}
                           </span>
                         </div>
                         <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                          {result.nights}
+                          {result.totalNights || result.nights}
                         </p>
                       </motion.div>
 
-                      <motion.div 
+                      <motion.div
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.2 }}
