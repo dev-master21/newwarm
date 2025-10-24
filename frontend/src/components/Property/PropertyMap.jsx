@@ -156,20 +156,6 @@ const PropertyMap = ({ property }) => {
           </div>
         )}
       </div>
-
-      {/* Open in Maps Button */}
-      <div className="p-4 bg-gray-50 dark:bg-gray-900">
-        <a 
-          href={mapUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-xl
-                   transition-colors flex items-center justify-center space-x-2"
-        >
-          <HiExternalLink className="w-5 h-5" />
-          <span>{t('property.location.openInMaps')}</span>
-        </a>
-      </div>
     </div>
   )
 }
