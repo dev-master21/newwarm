@@ -38,5 +38,26 @@ export const propertyService = {
    */
   async getPublishedProperties(params: any = {}) {
     return await api.get('/properties', { params })
+  },
+  
+  /**
+   * Поиск свободных периодов
+   */
+  async findAvailableSlots(propertyId: string | number, params: any) {
+    return await api.post(`/properties/${propertyId}/find-available-slots`, params)
+  },
+
+  /**
+   * Проверка доступности периода
+   */
+  async checkPeriodAvailability(propertyId: string | number, params: any) {
+    return await api.post(`/properties/${propertyId}/check-period`, params)
+  },
+
+  /**
+   * Поиск альтернативных объектов (новый метод)
+   */
+  async findAlternativeProperties(propertyId: string | number, params: any) {
+    return await api.post(`/properties/${propertyId}/find-alternative-properties`, params)
   }
 }

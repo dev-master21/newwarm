@@ -50,7 +50,7 @@ const PropertyDetail = () => {
   const [showAlternatives, setShowAlternatives] = useState(false)
   const [activeSection, setActiveSection] = useState('overview')
   const { addItem, removeItem, isInShortlist } = useShortlistStore()
-  
+  const [alternativesParams, setAlternativesParams] = useState(null)
   const [openFeatureCategories, setOpenFeatureCategories] = useState({
     rental: true,
     property: false,
@@ -825,16 +825,36 @@ const PropertyDetail = () => {
                 />
 
                 <div id="availability" className="hidden lg:block">
-                  <AvailabilityFinder
-                    propertyId={property.id}
-                    blockedDates={property.blockedDates || []}
-                    bookings={property.bookings || []}
-                    onSelectDates={handleDateRangeSelect}
-                  />
+                    <AvailabilityFinder
+                      propertyId={property.id}
+                      onSelectDates={handleDateRangeSelect}
+                      onOpenCalculator={(checkIn, checkOut) => {
+                        setSelectedDates({ checkIn, checkOut })
+                        setShowCalculator(true)
+                      }}
+                      onShowAlternatives={(params) => {
+                        setAlternativesParams(params)
+                        setShowAlternatives(true)
+                      }}
+                    />
+                    {showAlternatives && alternativesParams && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-6"
+                      >
+                        <AlternativeProperties
+                          propertyId={property.id}
+                          startDate={alternativesParams.startDate}
+                          endDate={alternativesParams.endDate}
+                          nightsCount={alternativesParams.nightsCount}
+                        />
+                      </motion.div>
+                    )}
                 </div>
               </div>
             </motion.div>
-
+                
             {/* Поиск свободных дат - МОБИЛЬНЫЕ */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -842,12 +862,32 @@ const PropertyDetail = () => {
               transition={{ delay: 0.7 }}
               className="lg:hidden scroll-mt-28"
             >
-              <AvailabilityFinder
-                propertyId={property.id}
-                blockedDates={property.blockedDates || []}
-                bookings={property.bookings || []}
-                onSelectDates={handleDateRangeSelect}
-              />
+                <AvailabilityFinder
+                  propertyId={property.id}
+                  onSelectDates={handleDateRangeSelect}
+                  onOpenCalculator={(checkIn, checkOut) => {
+                    setSelectedDates({ checkIn, checkOut })
+                    setShowCalculator(true)
+                  }}
+                  onShowAlternatives={(params) => {
+                    setAlternativesParams(params)
+                    setShowAlternatives(true)
+                  }}
+                />
+                {showAlternatives && alternativesParams && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-6"
+                  >
+                    <AlternativeProperties
+                      propertyId={property.id}
+                      startDate={alternativesParams.startDate}
+                      endDate={alternativesParams.endDate}
+                      nightsCount={alternativesParams.nightsCount}
+                    />
+                  </motion.div>
+                )}
             </motion.div>
 
             {/* МОБИЛЬНЫЕ: Бронирование */}
@@ -946,13 +986,19 @@ const PropertyDetail = () => {
       </div>
 
       {/* Price Calculator Modal */}
-      <PriceCalculator
-        propertyId={property.id}
-        property={property}
-        isOpen={showCalculator}
-        onClose={() => setShowCalculator(false)}
-        blockedDates={blockedDateStrings}
-      />
+        <PriceCalculator
+          propertyId={property.id}
+          property={property}
+          isOpen={showCalculator}
+          onClose={() => {
+            setShowCalculator(false)
+            // Опционально: сбрасываем даты при закрытии
+            // setSelectedDates({ checkIn: null, checkOut: null })
+          }}
+          blockedDates={property.blockedDates?.map(b => b.date) || []}
+          initialCheckIn={selectedDates?.checkIn}
+          initialCheckOut={selectedDates?.checkOut}
+        />
 
       {/* Map Modal */}
       <AnimatePresence>
