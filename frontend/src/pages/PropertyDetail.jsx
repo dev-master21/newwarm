@@ -162,35 +162,155 @@ const PropertyDetail = () => {
     }
   }
 
-  const handleDateRangeSelect = (dates) => {
-    setSelectedDates(dates)
-    
-    const checkIn = new Date(dates.checkIn)
-    const checkOut = new Date(dates.checkOut)
-    
-    const isBlocked = property.blockedDates?.some(block => {
-      const blockDate = new Date(block.date)
-      return blockDate >= checkIn && blockDate <= checkOut
-    })
-
-    const isBooked = property.bookings?.some(booking => {
-      const bookingCheckIn = new Date(booking.check_in_date)
-      const bookingCheckOut = new Date(booking.check_out_date)
-      return (checkIn >= bookingCheckIn && checkIn <= bookingCheckOut) ||
-             (checkOut >= bookingCheckIn && checkOut <= bookingCheckOut) ||
-             (checkIn <= bookingCheckIn && checkOut >= bookingCheckOut)
-    })
-
-    if (isBlocked || isBooked) {
-      setShowAlternatives(true)
-      toast.error(t('property.notAvailable'))
-      setTimeout(() => {
-        scrollToSection('alternatives')
-      }, 300)
-    } else {
-      setShowCalculator(true)
+const handleDateRangeSelect = (dates) => {
+  setSelectedDates(dates)
+  
+  const { checkIn, checkOut } = dates
+  
+  // === НОВАЯ ЛОГИКА: такая же как в календаре ===
+  
+  // Функции-помощники
+  const extractDateStr = (dateValue) => {
+    if (!dateValue) return null
+    const str = String(dateValue)
+    if (str.match(/^\d{4}-\d{2}-\d{2}/)) {
+      return str.substring(0, 10)
     }
+    return null
   }
+
+  const addDays = (dateStr, days) => {
+    const [year, month, day] = dateStr.split('-').map(Number)
+    const date = new Date(Date.UTC(year, month - 1, day))
+    date.setUTCDate(date.getUTCDate() + days)
+    
+    const y = date.getUTCFullYear()
+    const m = String(date.getUTCMonth() + 1).padStart(2, '0')
+    const d = String(date.getUTCDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }
+
+  const daysDiff = (date1Str, date2Str) => {
+    const [y1, m1, d1] = date1Str.split('-').map(Number)
+    const [y2, m2, d2] = date2Str.split('-').map(Number)
+    
+    const time1 = Date.UTC(y1, m1 - 1, d1)
+    const time2 = Date.UTC(y2, m2 - 1, d2)
+    
+    return Math.round((time2 - time1) / (1000 * 60 * 60 * 24))
+  }
+
+  // 1. Собираем все заблокированные даты
+  const allDatesSet = new Set()
+  
+  property.blockedDates?.forEach((block) => {
+    const dateStr = extractDateStr(block.blocked_date || block.date || block)
+    if (dateStr) {
+      allDatesSet.add(dateStr)
+    }
+  })
+
+  property.bookings?.forEach(booking => {
+    const bookingCheckIn = extractDateStr(booking.check_in_date || booking.check_in)
+    const bookingCheckOut = extractDateStr(booking.check_out_date || booking.check_out)
+    
+    if (bookingCheckIn && bookingCheckOut) {
+      let current = bookingCheckIn
+      while (current <= bookingCheckOut) {
+        allDatesSet.add(current)
+        current = addDays(current, 1)
+      }
+    }
+  })
+
+  // 2. Находим периоды и определяем первые дни
+  const sortedDates = Array.from(allDatesSet).sort()
+  const freeFirstDays = new Set()
+
+  if (sortedDates.length > 0) {
+    const periods = []
+    let currentPeriod = [sortedDates[0]]
+
+    for (let i = 1; i < sortedDates.length; i++) {
+      const diff = daysDiff(sortedDates[i - 1], sortedDates[i])
+      
+      if (diff === 1) {
+        currentPeriod.push(sortedDates[i])
+      } else {
+        periods.push([...currentPeriod])
+        currentPeriod = [sortedDates[i]]
+      }
+    }
+    
+    if (currentPeriod.length > 0) {
+      periods.push(currentPeriod)
+    }
+
+    periods.forEach((period) => {
+      freeFirstDays.add(period[0])
+    })
+  }
+
+  // 3. Проверяем доступность выбранного периода
+  const checkInStr = extractDateStr(checkIn)
+  const checkOutStr = extractDateStr(checkOut)
+  
+  let isAvailable = true
+  let current = checkInStr
+  
+  // Проверяем все даты от checkIn до checkOut (НЕ включая checkOut - день выезда)
+  while (current < checkOutStr) {
+    // Если это первый день периода - он свободен
+    if (freeFirstDays.has(current)) {
+      current = addDays(current, 1)
+      continue
+    }
+    
+    // Проверяем blockedDates
+    const inBlocked = property.blockedDates?.some(block => {
+      const blockDate = extractDateStr(block.blocked_date || block.date || block)
+      return blockDate === current
+    })
+    
+    if (inBlocked) {
+      isAvailable = false
+      break
+    }
+    
+    // Проверяем bookings (день выезда НЕ блокирует)
+    const inBookings = property.bookings?.some(booking => {
+      const bookingCheckIn = extractDateStr(booking.check_in_date || booking.check_in)
+      const bookingCheckOut = extractDateStr(booking.check_out_date || booking.check_out)
+      
+      if (!bookingCheckIn || !bookingCheckOut) return false
+      
+      return current >= bookingCheckIn && current < bookingCheckOut
+    })
+    
+    if (inBookings) {
+      isAvailable = false
+      break
+    }
+    
+    current = addDays(current, 1)
+  }
+
+  // 4. Действие на основе доступности
+  if (!isAvailable) {
+    setAlternativesParams({
+      startDate: checkInStr,
+      endDate: checkOutStr,
+      nightsCount: daysDiff(checkInStr, checkOutStr)
+    })
+    setShowAlternatives(true)
+    toast.error(t('property.notAvailable'))
+    setTimeout(() => {
+      scrollToSection('alternatives')
+    }, 300)
+  } else {
+    setShowCalculator(true)
+  }
+}
 
   const getPhotoUrl = (photoUrl) => {
     if (!photoUrl) return '/placeholder-villa.jpg'
@@ -200,16 +320,16 @@ const PropertyDetail = () => {
 
   const getFeatureIcon = (feature) => {
     const icons = {
-      'airConditioning': <HiSparkles className="w-4 h-4" />,
-      'wifi': <FaWifi className="w-4 h-4" />,
-      'pool': <FaSwimmingPool className="w-4 h-4" />,
-      'privatePool': <FaSwimmingPool className="w-4 h-4" />,
-      'parking': <FaParking className="w-4 h-4" />,
-      'kitchen': <MdKitchen className="w-4 h-4" />,
-      'balcony': <MdBalcony className="w-4 h-4" />,
-      'garden': '🌳',
-      'beachAccess': '🏖️',
-      'gym': '💪',
+      'airConditioning': <HiCheckCircle className="w-4 h-4" />,
+      'wifi': <HiCheckCircle className="w-4 h-4" />,
+      'pool': <HiCheckCircle className="w-4 h-4" />,
+      'privatePool': <HiCheckCircle className="w-4 h-4" />,
+      'parking': <HiCheckCircle className="w-4 h-4" />,
+      'kitchen': <HiCheckCircle className="w-4 h-4" />,
+      'balcony': <HiCheckCircle className="w-4 h-4" />,
+      'garden': <HiCheckCircle className="w-4 h-4" />,
+      'beachAccess': <HiCheckCircle className="w-4 h-4" />,
+      'gym': <HiCheckCircle className="w-4 h-4" />,
       'security': <HiShieldCheck className="w-4 h-4" />
     }
     return icons[feature] || <HiCheckCircle className="w-4 h-4" />
@@ -537,10 +657,6 @@ const PropertyDetail = () => {
                 transition={{ delay: 0.4 }}
                 className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 scroll-mt-28"
               >
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center space-x-2">
-                  <HiSparkles className="w-5 h-5 text-yellow-500" />
-                  <span>{t('property.features.title')}</span>
-                </h2>
                 
                 <div className="space-y-2">
                   {/* RENTAL */}
@@ -822,6 +938,10 @@ const PropertyDetail = () => {
                   blockedDates={property.blockedDates || []}
                   bookings={property.bookings || []}
                   onDateRangeSelect={handleDateRangeSelect}
+                  onShowAlternatives={(params) => {
+                    setAlternativesParams(params)
+                    setShowAlternatives(true)
+                  }}
                 />
 
                 <div id="availability" className="hidden lg:block">
@@ -879,7 +999,7 @@ const PropertyDetail = () => {
               </motion.div>
             )}
           </div>
-          
+
             {/* МОБИЛЬНЫЕ: Бронирование */}
             <div id="booking" className="lg:hidden scroll-mt-28">
               <BookingForm property={property} selectedDates={selectedDates} />
@@ -962,15 +1082,19 @@ const PropertyDetail = () => {
           propertyId={property.id}
           property={property}
           isOpen={showCalculator}
-          onClose={() => {
-            setShowCalculator(false)
-            // Опционально: сбрасываем даты при закрытии
-            // setSelectedDates({ checkIn: null, checkOut: null })
-          }}
+          onClose={() => setShowCalculator(false)}
+          blockedDates={property.blockedDates || []}
           bookings={property.bookings || []}
-          blockedDates={property.blockedDates?.map(b => b.date) || []}
           initialCheckIn={selectedDates?.checkIn}
           initialCheckOut={selectedDates?.checkOut}
+          onOpenBooking={(checkIn, checkOut) => {
+            setSelectedDates({ checkIn, checkOut })
+            setShowBookingForm(true)
+          }}
+          onShowAlternatives={(params) => {
+            setAlternativesParams(params)
+            setShowAlternatives(true)
+          }}
         />
 
       {/* Map Modal */}
