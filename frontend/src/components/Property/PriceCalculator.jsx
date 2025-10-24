@@ -9,8 +9,7 @@ import toast from 'react-hot-toast'
 import 'react-datepicker/dist/react-datepicker.css'
 import { dateToLocalDateStr } from '../../utils/dateUtils'
 
-const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates = [], bookings = [], initialCheckIn = null, initialCheckOut = null }) => {
-  const { t } = useTranslation()
+const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates = [], bookings = [], initialCheckIn = null, initialCheckOut = null, onOpenBooking, onShowAlternatives }) => {  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [checkIn, setCheckIn] = useState(initialCheckIn ? new Date(initialCheckIn) : null)
   const [checkOut, setCheckOut] = useState(initialCheckOut ? new Date(initialCheckOut) : null)
@@ -514,13 +513,13 @@ const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates =
                       className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 
                                p-5 rounded-xl border-2 border-orange-300 dark:border-orange-700"
                     >
-                      <div className="flex items-start space-x-3">
+                      <div className="flex items-start space-x-3 mb-4">
                         <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center flex-shrink-0">
                           <HiExclamationCircle className="w-6 h-6 text-white" />
                         </div>
                         <div className="flex-1">
                           <h4 className="font-bold text-orange-900 dark:text-orange-100 mb-2">
-                            ⚠️ {t('property.priceCalculator.periodHasOccupiedDates')}
+                            {t('property.priceCalculator.periodHasOccupiedDates')}
                           </h4>
                           <div className="grid grid-cols-2 gap-3 mb-3">
                             <div className="bg-white/50 dark:bg-gray-800/50 p-3 rounded-lg">
@@ -542,37 +541,97 @@ const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates =
                               </span>
                             </div>
                           </div>
-                          <p className="text-sm text-orange-800 dark:text-orange-200">
+                          <p className="text-sm text-orange-800 dark:text-orange-200 mb-3">
                             {t('property.priceCalculator.viewDetailsBelow')}
                           </p>
                         </div>
                       </div>
+
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => {
+                            if (onShowAlternatives) {
+                              // Сначала вызываем показ альтернатив
+                              onShowAlternatives({
+                                startDate: checkIn ? dateToLocalDateStr(checkIn) : null,
+                                endDate: checkOut ? dateToLocalDateStr(checkOut) : null,
+                                nightsCount: result.nights
+                              })
+
+                              // Плавно закрываем модальное окно
+                              onClose()
+
+                              // Увеличиваем задержку для гарантированного рендера
+                              setTimeout(() => {
+                                const scrollToAlternatives = () => {
+                                  const alternativesSection = document.getElementById('alternatives')
+                                  if (alternativesSection) {
+                                    const yOffset = -120 // Отступ сверху
+                                    const y = alternativesSection.getBoundingClientRect().top + window.pageYOffset + yOffset
+                                  
+                                    window.scrollTo({
+                                      top: y,
+                                      behavior: 'smooth'
+                                    })
+                                  }
+                                }
+
+                                // Пробуем скроллить несколько раз с интервалом
+                                scrollToAlternatives()
+                                setTimeout(scrollToAlternatives, 100)
+                                setTimeout(scrollToAlternatives, 300)
+                              }, 500)
+                            }
+                          }}
+                          className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700
+                                   text-white font-semibold py-3.5 px-6 rounded-xl transition-all
+                                   flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
+                        >
+                          <HiSparkles className="w-5 h-5" />
+                          <span>{t('property.priceCalculator.viewAlternatives')}</span>
+                        </motion.button>
                     </motion.div>
                   )}
 
-                  {/* Успешный статус если все дни свободны */}
-                  {!result.hasOccupiedDays && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 
-                               p-5 rounded-xl border-2 border-green-300 dark:border-green-700"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <HiCheckCircle className="w-6 h-6 text-white" />
+                    {/* Успешный статус если все дни свободны */}
+                    {!result.hasOccupiedDays && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 
+                                 p-5 rounded-xl border-2 border-green-300 dark:border-green-700"
+                      >
+                        <div className="flex items-center space-x-3 mb-4">
+                          <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <HiCheckCircle className="w-6 h-6 text-white" />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-green-900 dark:text-green-100 mb-1">
+                              {t('property.priceCalculator.allDatesFree')}
+                            </h4>
+                            <p className="text-sm text-green-800 dark:text-green-200">
+                              {t('property.priceCalculator.propertyFullyAvailable')}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <h4 className="font-bold text-green-900 dark:text-green-100 mb-1">
-                            {t('property.priceCalculator.allDatesFree')}
-                          </h4>
-                          <p className="text-sm text-green-800 dark:text-green-200">
-                            {t('property.priceCalculator.propertyFullyAvailable')}
-                          </p>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
+
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => {
+                            onOpenBooking(checkIn, checkOut)
+                            onClose()
+                          }}
+                          className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700
+                                   text-white font-semibold py-3.5 px-6 rounded-xl transition-all
+                                   flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
+                        >
+                          <HiCheckCircle className="w-5 h-5" />
+                          <span>{t('property.bookNow')}</span>
+                        </motion.button>
+                      </motion.div>
+                    )}
 
                   {/* Price Summary */}
                   <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 

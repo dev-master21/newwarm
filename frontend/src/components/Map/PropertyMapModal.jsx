@@ -36,7 +36,7 @@ const PropertyMapModal = ({ property, onClose }) => {
   }
 
   const handleViewDetails = () => {
-    navigate(`/villas/${property.id}`)
+    navigate(`/properties/${property.id}`)
     onClose()
   }
 

@@ -348,7 +348,7 @@
       "freeShort": "Свободно",
       "toastOccupiedDays": "В выбранном периоде",
       "bookNow": "Забронировать",
-      "viewAlternatives": "Посмотреть альтернативы",
+      "viewAlternatives": "Посмотреть альтернативы на этот период",
       "toastAllFree": "Все даты в периоде свободны!"
     },
 
@@ -413,35 +413,6 @@
       "propertyLocation": "Расположение объекта",
       "showMore": "Показать ещё"
     },
-
-    "booking": {
-      "title": "Забронировать объект",
-      "firstName": "Имя",
-      "firstNamePlaceholder": "Введите ваше имя",
-      "lastName": "Фамилия",
-      "lastNamePlaceholder": "Введите вашу фамилию",
-      "email": "Email",
-      "emailPlaceholder": "example@mail.com",
-      "phone": "Телефон",
-      "phonePlaceholder": "+7 (___) ___-__-__",
-      "checkIn": "Дата заезда",
-      "checkInPlaceholder": "Выберите дату заезда",
-      "checkOut": "Дата выезда",
-      "checkOutPlaceholder": "Выберите дату выезда",
-      "adults": "Взрослые",
-      "children": "Дети",
-      "message": "Сообщение",
-      "messagePlaceholder": "Расскажите нам о ваших пожеланиях...",
-      "submit": "Отправить заявку",
-      "sending": "Отправка...",
-      "fillRequired": "Пожалуйста, заполните обязательные поля",
-      "success": "Заявка успешно отправлена!",
-      "successTitle": "Заявка отправлена!",
-      "successMessage": "Мы свяжемся с вами в ближайшее время для подтверждения бронирования",
-      "error": "Ошибка при отправке заявки. Попробуйте еще раз.",
-      "disclaimer": "Нажимая кнопку, вы соглашаетесь с политикой конфиденциальности"
-    },
-
     "location": {
       "title": "Расположение",
       "openInMaps": "Открыть в картах"
@@ -1878,34 +1849,42 @@
     "compare": "Сравнить"
   },
   "booking": {
-    "title": "Бронирование",
-    "guestDetails": "Данные гостя",
-    "firstName": "Имя",
-    "lastName": "Фамилия",
-    "email": "Email",
-    "phone": "Телефон",
-    "checkIn": "Дата заезда",
-    "checkOut": "Дата выезда",
-    "guests": "Количество гостей",
-    "adults": "Взрослые",
-    "children": "Дети",
-    "specialRequests": "Особые пожелания",
-    "requestsPlaceholder": "Расскажите нам о ваших особых пожеланиях...",
-    "bookingSummary": "Итоги бронирования",
-    "pricePerNight": "Цена за ночь",
-    "nights": "ночей",
-    "subtotal": "Промежуточный итог",
-    "taxes": "Налоги и сборы",
-    "total": "Итого",
-    "payNow": "Оплатить сейчас",
-    "payLater": "Оплатить позже",
-    "confirmBooking": "Подтвердить бронирование",
-    "processing": "Обработка...",
-    "success": "Бронирование подтверждено!",
-    "successDesc": "Вы получите письмо с подтверждением в ближайшее время",
-    "error": "Ошибка при бронировании",
-    "errorDesc": "Пожалуйста, попробуйте еще раз или свяжитесь с нами",
-    "termsAgree": "Я согласен с условиями и положениями"
+    "modal": {
+      "title": "Бронирование",
+      "or": "или",
+      "contacts": {
+        "title": "Для бронирования свяжитесь с нами:",
+        "phone": "Звонок"
+      },
+      "formToggle": "Заполните форму и мы свяжемся с вами",
+      "form": {
+        "firstName": "Имя",
+        "lastName": "Фамилия",
+        "email": "Email",
+        "phone": "Телефон",
+        "dates": "Даты проживания",
+        "message": "Сообщение",
+        "firstNamePlaceholder": "Ваше имя",
+        "lastNamePlaceholder": "Ваша фамилия",
+        "emailPlaceholder": "your@email.com",
+        "phonePlaceholder": "+7 900 123-45-67",
+        "selectPeriod": "Выбрать период",
+        "messagePlaceholder": "Расскажите о ваших пожеланиях...",
+        "contactMethod": "Удобный способ связи:",
+        "call": "Звонок",
+        "nights": "ночей",
+        "selectEndDate": "Выберите дату выезда",
+        "cancel": "Отмена",
+        "submit": "Отправить запрос",
+        "sending": "Отправка...",
+        "fillRequired": "Заполните все обязательные поля",
+        "success": "Запрос отправлен!",
+        "successTitle": "Спасибо за запрос!",
+        "successMessage": "Мы свяжемся с вами в ближайшее время",
+        "error": "Ошибка отправки. Попробуйте ещё раз",
+        "disclaimer": "Нажимая кнопку, вы соглашаетесь с политикой конфиденциальности"
+      }
+    }
   },
   "testimonials": {
     "title": "Отзывы наших гостей",

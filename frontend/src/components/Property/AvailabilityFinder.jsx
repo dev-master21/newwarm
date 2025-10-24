@@ -21,7 +21,7 @@ import toast from 'react-hot-toast'
 import { propertyService } from '../../services/property.service'
 import 'react-datepicker/dist/react-datepicker.css'
 
-const AvailabilityFinder = ({ propertyId, onSelectDates, onOpenCalculator, onShowAlternatives }) => {
+const AvailabilityFinder = ({ propertyId, onSelectDates, onOpenCalculator, onOpenBooking, onShowAlternatives }) => {
   const { t } = useTranslation()
   
   // Режимы поиска
@@ -193,20 +193,8 @@ const AvailabilityFinder = ({ propertyId, onSelectDates, onOpenCalculator, onSho
 
   // Выбор периода - открываем калькулятор с датами
   const handleSelectSlot = (slot) => {
-    console.log('🎯 Выбран слот:', slot)
-    
-    if (onOpenCalculator) {
-      // Передаем даты в калькулятор
-      console.log('📅 Открываем калькулятор с датами:', slot.checkIn, slot.checkOut)
-      onOpenCalculator(slot.checkIn, slot.checkOut)
-    } else if (onSelectDates) {
-      console.log('📅 Используем onSelectDates')
-      onSelectDates({
-        checkIn: slot.checkIn,
-        checkOut: slot.checkOut
-      })
-    }
-    toast.success(t('property.availabilityFinder.datesSelected'))
+    onSelectDates(slot)
+    onOpenBooking(slot.checkIn, slot.checkOut)
   }
 
   // Сброс
