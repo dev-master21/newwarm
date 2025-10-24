@@ -47,6 +47,9 @@ const AvailabilityFinder = ({ propertyId, onSelectDates, onOpenCalculator, onSho
   // Спойлер для частичной доступности
   const [showPartialDetails, setShowPartialDetails] = useState(false)
 
+  // Спойлер для "Как это работает"
+  const [showHowItWorks, setShowHowItWorks] = useState(false)
+
   // Поиск свободных периодов (режим "месяц")
   const handleSearchByMonth = async () => {
     if (!selectedMonth) {
@@ -243,9 +246,6 @@ const AvailabilityFinder = ({ propertyId, onSelectDates, onOpenCalculator, onSho
             <HiSearch className="w-6 h-6 text-blue-500" />
             <span>{t('property.availabilityFinder.title')}</span>
           </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            {t('property.availabilityFinder.subtitle')}
-          </p>
         </div>
         {showResults && (
           <button
@@ -256,21 +256,6 @@ const AvailabilityFinder = ({ propertyId, onSelectDates, onOpenCalculator, onSho
           </button>
         )}
       </div>
-
-      {/* Информационный блок */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4"
-      >
-        <div className="flex items-start space-x-3">
-          <HiInformationCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-blue-900 dark:text-blue-200">
-            <p className="font-medium mb-1">{t('property.availabilityFinder.howItWorks')}</p>
-            <p>{t('property.availabilityFinder.howItWorksDesc')}</p>
-          </div>
-        </div>
-      </motion.div>
 
       {/* Переключатель режима поиска */}
       <div className="space-y-3">

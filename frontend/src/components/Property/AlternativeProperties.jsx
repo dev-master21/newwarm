@@ -14,7 +14,8 @@ import {
   HiClock,
   HiX,
   HiMap,
-  HiEye
+  HiEye,
+  HiChevronDown
 } from 'react-icons/hi'
 import { IoBedOutline, IoExpand } from 'react-icons/io5'
 import { MdBathtub } from 'react-icons/md'
@@ -23,10 +24,12 @@ import { propertyService } from '../../services/property.service'
 import toast from 'react-hot-toast'
 
 const AlternativeProperties = ({ propertyId, startDate, endDate, nightsCount }) => {
-  const { t, i18n } = useTranslation() // ДОБАВИЛИ i18n
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const [properties, setProperties] = useState([])
   const [loading, setLoading] = useState(true)
+  const [visibleCount, setVisibleCount] = useState(2) // Показываем первые 2 объекта
+  const ITEMS_PER_PAGE = 2 // Подгружаем по 2 объекта
 
   useEffect(() => {
     if (startDate && endDate && nightsCount) {
@@ -104,7 +107,6 @@ const AlternativeProperties = ({ propertyId, startDate, endDate, nightsCount }) 
     if (!dateStr) return ''
     const date = new Date(dateStr)
 
-    // Используем текущий язык из i18n
     const locale = i18n.language || 'ru'
 
     return date.toLocaleDateString(locale, {
@@ -124,6 +126,12 @@ const AlternativeProperties = ({ propertyId, startDate, endDate, nightsCount }) 
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [navigate])
 
+  const handleShowMore = () => {
+    setVisibleCount(prev => Math.min(prev + ITEMS_PER_PAGE, properties.length))
+  }
+
+  const hasMore = visibleCount < properties.length
+
   if (loading) {
     return (
       <motion.div 
@@ -134,8 +142,8 @@ const AlternativeProperties = ({ propertyId, startDate, endDate, nightsCount }) 
         <div className="animate-pulse space-y-4">
           <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3].map((i) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {[1, 2].map((i) => (
               <div key={i} className="h-80 bg-gray-200 dark:bg-gray-700 rounded-xl" />
             ))}
           </div>
@@ -185,6 +193,7 @@ const AlternativeProperties = ({ propertyId, startDate, endDate, nightsCount }) 
         <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 mb-3">
           {t('property.alternatives.subtitle')}
         </p>
+        
         {startDate && endDate && (
           <div className="inline-flex items-center flex-wrap gap-2 bg-blue-50 dark:bg-blue-900/20 
                        px-3 md:px-4 py-2 rounded-xl text-xs md:text-sm border border-blue-200 dark:border-blue-800">
@@ -208,9 +217,9 @@ const AlternativeProperties = ({ propertyId, startDate, endDate, nightsCount }) 
         )}
       </div>
 
-      {/* Properties Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        {properties.map((property, index) => (
+      {/* Properties Grid - изменено на 2 колонки */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+        {properties.slice(0, visibleCount).map((property, index) => (
           <PropertyCard
             key={property.id}
             property={property}
@@ -224,6 +233,29 @@ const AlternativeProperties = ({ propertyId, startDate, endDate, nightsCount }) 
           />
         ))}
       </div>
+
+      {/* Кнопка "Показать ещё" */}
+      {hasMore && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-6 flex justify-center"
+        >
+          <button
+            onClick={handleShowMore}
+            className="flex items-center space-x-2 bg-gradient-to-r from-blue-500 to-blue-600 
+                     hover:from-blue-600 hover:to-blue-700 text-white font-semibold 
+                     py-3 px-6 rounded-xl transition-all shadow-md hover:shadow-lg 
+                     transform hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <span>{t('property.alternatives.showMore')}</span>
+            <span className="bg-white/20 px-2 py-0.5 rounded-full text-sm">
+              +{Math.min(ITEMS_PER_PAGE, properties.length - visibleCount)}
+            </span>
+            <HiChevronDown className="w-5 h-5" />
+          </button>
+        </motion.div>
+      )}
     </motion.div>
   )
 }
@@ -249,30 +281,25 @@ const PropertyCard = memo(({ property, index, nightsCount, onNavigate, formatPri
       const thumbPath = photoUrl.substring(0, lastDot) + '_thumb' + photoUrl.substring(lastDot)
       return `${baseUrl}${thumbPath}`
     }
-    
     return `${baseUrl}${photoUrl}`
   }, [])
 
-  const nextPhoto = useCallback((e) => {
-    e?.stopPropagation()
-    if (hasPhotos) {
-      setCurrentPhotoIndex((prev) => (prev + 1) % photos.length)
-    }
-  }, [hasPhotos, photos.length])
+  const handlePrevPhoto = useCallback((e) => {
+    e.stopPropagation()
+    setCurrentPhotoIndex((prev) => (prev === 0 ? photos.length - 1 : prev - 1))
+  }, [photos.length])
 
-  const prevPhoto = useCallback((e) => {
-    e?.stopPropagation()
-    if (hasPhotos) {
-      setCurrentPhotoIndex((prev) => (prev - 1 + photos.length) % photos.length)
-    }
-  }, [hasPhotos, photos.length])
+  const handleNextPhoto = useCallback((e) => {
+    e.stopPropagation()
+    setCurrentPhotoIndex((prev) => (prev === photos.length - 1 ? 0 : prev + 1))
+  }, [photos.length])
 
   const handleTouchStart = useCallback((e) => {
-    setTouchStart(e.targetTouches[0].clientX)
+    setTouchStart(e.touches[0].clientX)
   }, [])
 
   const handleTouchMove = useCallback((e) => {
-    setTouchEnd(e.targetTouches[0].clientX)
+    setTouchEnd(e.touches[0].clientX)
   }, [])
 
   const handleTouchEnd = useCallback(() => {
@@ -282,16 +309,16 @@ const PropertyCard = memo(({ property, index, nightsCount, onNavigate, formatPri
     const isLeftSwipe = distance > 50
     const isRightSwipe = distance < -50
 
-    if (isLeftSwipe) {
-      nextPhoto()
+    if (isLeftSwipe && currentPhotoIndex < photos.length - 1) {
+      setCurrentPhotoIndex(prev => prev + 1)
     }
-    if (isRightSwipe) {
-      prevPhoto()
+    if (isRightSwipe && currentPhotoIndex > 0) {
+      setCurrentPhotoIndex(prev => prev - 1)
     }
 
     setTouchStart(0)
     setTouchEnd(0)
-  }, [touchStart, touchEnd, nextPhoto, prevPhoto])
+  }, [touchStart, touchEnd, currentPhotoIndex, photos.length])
 
   const handleCardClick = useCallback(() => {
     onNavigate(property.id)
@@ -299,150 +326,128 @@ const PropertyCard = memo(({ property, index, nightsCount, onNavigate, formatPri
 
   const handleMapClick = useCallback((e) => {
     e.stopPropagation()
-    if (property.latitude && property.longitude) {
-      setShowMapModal(true)
-    } else {
-      toast.error(t('property.alternatives.locationUnavailable'))
-    }
-  }, [property.latitude, property.longitude, t])
+    setShowMapModal(true)
+  }, [])
 
   const handleSlotsClick = useCallback((e) => {
     e.stopPropagation()
     setShowSlotsModal(true)
   }, [])
 
-  const currentPhoto = hasPhotos && photos[currentPhotoIndex]
-    ? photos[currentPhotoIndex].photo_url 
-    : null
-
   return (
     <>
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: index * 0.1 }}
-        whileHover={{ y: -4 }}
         onClick={handleCardClick}
-        className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden cursor-pointer 
-                 shadow-md hover:shadow-2xl transition-all duration-300 group 
-                 border border-gray-200 dark:border-gray-700
-                 hover:border-blue-500 dark:hover:border-blue-500 w-full"
+        className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 
+                 hover:shadow-xl transition-all cursor-pointer group"
       >
-        {/* Image with Carousel */}
-        <div 
-          className="relative h-48 sm:h-56 overflow-hidden bg-gray-100 dark:bg-gray-900"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.img
-              key={currentPhotoIndex}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              src={getThumbnailUrl(currentPhoto)}
-              alt={property.property_name || t('property.alternatives.villa')}
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-              draggable={false}
-              loading="lazy"
-            />
-          </AnimatePresence>
-          
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-          
-          {/* Carousel Controls */}
-          {hasPhotos && photos.length > 1 && (
+        {/* Image Carousel */}
+        <div className="relative h-48 sm:h-56 bg-gray-200 dark:bg-gray-700">
+          {hasPhotos ? (
             <>
-              <button
-                onClick={prevPhoto}
-                className="hidden sm:flex absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 
-                         text-white p-2 rounded-full transition-all z-10 opacity-0 group-hover:opacity-100
-                         items-center justify-center"
-              >
-                <HiChevronLeft className="w-5 h-5" />
-              </button>
-              <button
-                onClick={nextPhoto}
-                className="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 
-                         text-white p-2 rounded-full transition-all z-10 opacity-0 group-hover:opacity-100
-                         items-center justify-center"
-              >
-                <HiChevronRight className="w-5 h-5" />
-              </button>
-              
-              <button
-                onClick={prevPhoto}
-                className="sm:hidden absolute left-1.5 top-1/2 -translate-y-1/2 bg-black/60 backdrop-blur-sm
-                         text-white p-1.5 rounded-full transition-all z-10 flex items-center justify-center"
-              >
-                <HiChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                onClick={nextPhoto}
-                className="sm:hidden absolute right-1.5 top-1/2 -translate-y-1/2 bg-black/60 backdrop-blur-sm
-                         text-white p-1.5 rounded-full transition-all z-10 flex items-center justify-center"
-              >
-                <HiChevronRight className="w-4 h-4" />
-              </button>
-              
-              {/* Photo Indicators - only on desktop */}
-              <div className="hidden sm:flex absolute bottom-2 sm:bottom-3 left-1/2 -translate-x-1/2 space-x-1 z-10 
-                            max-w-[90%] overflow-x-auto scrollbar-hide px-2">
-                {photos.map((_, idx) => (
+              <AnimatePresence mode="wait">
+                <motion.img
+                  key={currentPhotoIndex}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  src={getThumbnailUrl(photos[currentPhotoIndex].photo_url)}
+                  alt={property.name}
+                  className="w-full h-full object-cover"
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                />
+              </AnimatePresence>
+
+              {photos.length > 1 && (
+                <>
                   <button
-                    key={idx}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setCurrentPhotoIndex(idx)
-                    }}
-                    className={`rounded-full transition-all flex-shrink-0 ${
-                      idx === currentPhotoIndex 
-                        ? 'bg-white w-6 h-1.5' 
-                        : 'bg-white/60 w-1.5 h-1.5 hover:bg-white/80'
-                    }`}
-                  />
-                ))}
-              </div>
+                    onClick={handlePrevPhoto}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 dark:bg-gray-800/90 
+                             rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 
+                             transition-opacity shadow-lg hover:bg-white dark:hover:bg-gray-700 z-10"
+                  >
+                    <HiChevronLeft className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                  </button>
+                  <button
+                    onClick={handleNextPhoto}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 dark:bg-gray-800/90 
+                             rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 
+                             transition-opacity shadow-lg hover:bg-white dark:hover:bg-gray-700 z-10"
+                  >
+                    <HiChevronRight className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                  </button>
+
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex space-x-1 z-10">
+                    {photos.slice(0, 5).map((_, idx) => (
+                      <div
+                        key={idx}
+                        className={`h-1 rounded-full transition-all ${
+                          idx === currentPhotoIndex
+                            ? 'w-6 bg-white'
+                            : 'w-1 bg-white/50'
+                        }`}
+                      />
+                    ))}
+                    {photos.length > 5 && (
+                      <div className="h-1 w-1 rounded-full bg-white/50" />
+                    )}
+                  </div>
+                </>
+              )}
             </>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <HiHome className="w-16 h-16 text-gray-400" />
+            </div>
           )}
 
-          {/* Minimum Price Badge */}
-          {property.min_price && (
-            <div className="absolute top-2 sm:top-3 right-2 sm:right-3 bg-gradient-to-r from-blue-500 to-blue-600 
-                          text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-bold shadow-lg z-10">
-              {t('property.alternatives.from')} ฿{formatPrice(property.min_price)}
+          {property.price_per_night && (
+            <div className="absolute top-2 right-2 bg-gradient-to-r from-blue-500 to-blue-600 
+                          text-white px-2.5 sm:px-3 py-1 rounded-lg font-bold text-xs sm:text-sm shadow-lg">
+              {t('property.alternatives.from')} ฿{formatPrice(property.price_per_night)}
             </div>
           )}
         </div>
 
         {/* Content */}
-        <div className="p-3 sm:p-4 space-y-2">
-          <h4 className="font-bold text-base sm:text-lg text-gray-900 dark:text-white line-clamp-2 
-                       group-hover:text-blue-600 transition-colors leading-tight">
-            {property.property_name || `${t('property.alternatives.villa')} ${property.property_number}`}
-          </h4>
+        <div className="p-3 sm:p-4 space-y-2 sm:space-y-3">
+          <div>
+            <h4 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white mb-1 line-clamp-1">
+              {property.name}
+            </h4>
+            {property.address && (
+              <div className="flex items-start space-x-1 text-xs text-gray-600 dark:text-gray-400">
+                <HiLocationMarker className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-red-500" />
+                <span className="line-clamp-1">{property.address}</span>
+              </div>
+            )}
+          </div>
 
-          <div className="flex items-center flex-wrap gap-2 text-sm">
+          <div className="flex items-center flex-wrap gap-2 sm:gap-3 text-xs sm:text-sm">
             {property.bedrooms && (
-              <div className="flex items-center space-x-1 bg-gray-50 dark:bg-gray-700 px-2 py-1 rounded-lg">
+              <div className="flex items-center space-x-1">
                 <IoBedOutline className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-600 dark:text-gray-400" />
-                <span className="font-semibold text-gray-900 dark:text-white text-xs sm:text-sm">
+                <span className="font-semibold text-gray-900 dark:text-white">
                   {formatNumber(property.bedrooms)}
                 </span>
               </div>
             )}
             {property.bathrooms && (
-              <div className="flex items-center space-x-1 bg-gray-50 dark:bg-gray-700 px-2 py-1 rounded-lg">
+              <div className="flex items-center space-x-1">
                 <MdBathtub className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-600 dark:text-gray-400" />
-                <span className="font-semibold text-gray-900 dark:text-white text-xs sm:text-sm">
+                <span className="font-semibold text-gray-900 dark:text-white">
                   {formatNumber(property.bathrooms)}
                 </span>
               </div>
             )}
             {property.indoor_area && (
-              <div className="flex items-center space-x-1 bg-gray-50 dark:bg-gray-700 px-2 py-1 rounded-lg">
+              <div className="flex items-center space-x-1">
                 <IoExpand className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-600 dark:text-gray-400" />
                 <span className="font-semibold text-gray-900 dark:text-white text-xs sm:text-sm">
                   {formatNumber(property.indoor_area)} {t('property.alternatives.sqm')}

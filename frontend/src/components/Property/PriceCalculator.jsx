@@ -564,7 +564,7 @@ const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates =
                         </div>
                         <div>
                           <h4 className="font-bold text-green-900 dark:text-green-100 mb-1">
-                            ✅ {t('property.priceCalculator.allDatesFree')}
+                            {t('property.priceCalculator.allDatesFree')}
                           </h4>
                           <p className="text-sm text-green-800 dark:text-green-200">
                             {t('property.priceCalculator.propertyFullyAvailable')}

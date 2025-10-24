@@ -175,6 +175,7 @@
       "outdoor": "Открытые территории",
       "location": "Расположение и окружение",
       "views": "Виды из окон",
+      "rental": "Включено в стоимость",
       "items": {
         "airConditioning": "Кондиционер",
         "wifi": "Wi-Fi",
@@ -220,19 +221,77 @@
         "mountainView": "Вид на горы",
         "gardenView": "Вид на сад",
         "poolView": "Вид на бассейн",
-        "cityView": "Вид на город"
+        "cityView": "Вид на город",
+        "mediaRoom": "Медиа-комната",
+        "privateGym": "Частный спортзал",
+        "privateLift": "Частный лифт",
+        "privateSauna": "Частная сауна",
+        "cornerUnit": "Угловая квартира",
+        "maidsQuarters": "Комната для прислуги",
+        "duplex": "Дуплекс",
+        "westernKitchen": "Западная кухня",
+        "bathtub": "Ванна",
+        "smartHome": "Умный дом",
+        "poolAccess": "Доступ к бассейну",
+        "rooftopTerrace": "Терраса на крыше",
+        "privateGarden": "Частный сад",
+        "gardenAccess": "Доступ к саду",
+        "coveredParking": "Крытая парковка",
+        "outdoorShowers": "Уличный душ",
+        "wifiIncluded": "Wi-Fi включен",
+        "washingMachine": "Стиральная машина",
+        "cableTV": "Кабельное ТВ",
+        "truevision": "TrueVision",
+        "gardeningIncluded": "Уход за садом включен",
+        "poolCleaningIncluded": "Уборка бассейна включена",
+        "beachfront": "На берегу моря",
+        "oceanfront": "Вид на океан",
+        "oceanAccess": "Доступ к океану",
+        "blockedView": "Закрытый вид",
+        "unblockedView": "Открытый вид",
+        "riverView": "Вид на реку",
+        "parkView": "Вид на парк",
+        "partialSeaView": "Частичный вид на море",
+        "lakeView": "Вид на озеро",
+        "golfView": "Вид на гольф-поле"
       }
     },
 
     "calendar": {
-      "title": "Календарь занятости",
+      "title": "Календарь доступности",
+      "today": "Сегодня",
+      "clearSelection": "Очистить",
       "available": "Доступно",
       "blocked": "Занято",
       "selected": "Выбрано",
-      "today": "Сегодня",
-      "clearSelection": "Очистить выбор",
       "selectedDates": "Выбранные даты",
-      "nights": "ночей"
+      "nights": "ночей",
+      "periodUnavailableTitle": "Период недоступен",
+      "periodUnavailableText": "Мы подобрали для вас альтернативные варианты",
+      "viewAlternatives": "Просмотреть альтернативы",
+      "months": {
+        "january": "Январь",
+        "february": "Февраль",
+        "march": "Март",
+        "april": "Апрель",
+        "may": "Май",
+        "june": "Июнь",
+        "july": "Июль",
+        "august": "Август",
+        "september": "Сентябрь",
+        "october": "Октябрь",
+        "november": "Ноябрь",
+        "december": "Декабрь"
+      },
+      "weekDays": {
+        "mon": "Пн",
+        "tue": "Вт",
+        "wed": "Ср",
+        "thu": "Чт",
+        "fri": "Пт",
+        "sat": "Сб",
+        "sun": "Вс"
+      }
     },
 
     "pricing": {
@@ -288,6 +347,8 @@
       "occupiedShort": "Занято",
       "freeShort": "Свободно",
       "toastOccupiedDays": "В выбранном периоде",
+      "bookNow": "Забронировать",
+      "viewAlternatives": "Посмотреть альтернативы",
       "toastAllFree": "Все даты в периоде свободны!"
     },
 
@@ -349,7 +410,8 @@
       "availableSlots": "Свободные периоды ({{count}})",
       "periodCost": "Стоимость периода",
       "perNight": "за ночь",
-      "propertyLocation": "Расположение объекта"
+      "propertyLocation": "Расположение объекта",
+      "showMore": "Показать ещё"
     },
 
     "booking": {

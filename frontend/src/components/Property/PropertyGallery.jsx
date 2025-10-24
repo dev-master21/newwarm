@@ -122,50 +122,46 @@ const PropertyGallery = ({ photos = [], photosByCategory = {} }) => {
               className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
             />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-            <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-sm text-white px-3 py-1 rounded-lg text-sm">
-              {t('property.gallery.mainPhoto')}
-            </div>
           </motion.div>
         )}
 
         {/* Other photos */}
-        {filteredPhotos.slice(1, 5).map((photo, index) => (
-          <motion.div
-            key={photo.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: (index + 1) * 0.05 }}
-            className="relative rounded-xl overflow-hidden cursor-pointer group aspect-square"
-            onClick={() => openModal(index + 1)}
-          >
-            <img
-              src={getPhotoUrl(photo.photo_url)}
-              alt={`Property ${index + 2}`}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-            />
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-          </motion.div>
-        ))}
-
-        {/* Show all photos button */}
-        {filteredPhotos.length > 5 && (
-          <motion.button
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            onClick={() => openModal(5)}
-            className="relative rounded-xl overflow-hidden group aspect-square bg-gray-900/80 backdrop-blur-sm
-                     flex flex-col items-center justify-center space-y-2 hover:bg-gray-900/90 transition-colors"
-          >
-            <HiPhotograph className="w-8 h-8 text-white" />
-            <span className="text-white font-semibold">
-              +{filteredPhotos.length - 5}
-            </span>
-            <span className="text-white/80 text-sm">
-              {t('property.gallery.viewAll')}
-            </span>
-          </motion.button>
-        )}
+        {filteredPhotos.slice(1, 5).map((photo, index) => {
+          const actualIndex = index + 1
+          const isLastSmallPhoto = actualIndex === 4 && filteredPhotos.length > 5
+          
+          return (
+            <motion.div
+              key={photo.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: actualIndex * 0.05 }}
+              className="relative rounded-xl overflow-hidden cursor-pointer group aspect-square"
+              onClick={() => openModal(actualIndex)}
+            >
+              <img
+                src={getPhotoUrl(photo.photo_url)}
+                alt={`Property ${actualIndex + 1}`}
+                className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-110 ${
+                  isLastSmallPhoto ? 'filter blur-sm' : ''
+                }`}
+              />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+              
+              {isLastSmallPhoto && (
+                <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex flex-col items-center justify-center space-y-2">
+                  <HiPhotograph className="w-8 h-8 text-white" />
+                  <span className="text-white font-semibold text-xl">
+                    +{filteredPhotos.length - 5}
+                  </span>
+                  <span className="text-white/90 text-sm font-medium">
+                    {t('property.gallery.viewAll')}
+                  </span>
+                </div>
+              )}
+            </motion.div>
+          )
+        })}
       </div>
 
       {/* Fullscreen Modal */}
