@@ -46,6 +46,7 @@ const PropertyDetail = () => {
   const [tomorrowPrice, setTomorrowPrice] = useState(null)
   const [showCalculator, setShowCalculator] = useState(false)
   const [showMapModal, setShowMapModal] = useState(false)
+  const [showBookingModal, setShowBookingModal] = useState(false)
   const [selectedDates, setSelectedDates] = useState({ checkIn: null, checkOut: null })
   const [showAlternatives, setShowAlternatives] = useState(false)
   const [activeSection, setActiveSection] = useState('overview')
@@ -75,8 +76,7 @@ const PropertyDetail = () => {
         'features',
         'pricing',
         'calendar',
-        'availability',
-        'booking'
+        'availability'
       ]
 
       const scrollPosition = window.scrollY + 250
@@ -394,8 +394,7 @@ const handleDateRangeSelect = (dates) => {
     { id: 'features', label: t('property.sections.features'), icon: HiSparkles },
     { id: 'pricing', label: t('property.sections.pricing'), icon: HiCurrencyDollar },
     { id: 'calendar', label: t('property.sections.calendar'), icon: HiCalendar },
-    { id: 'availability', label: t('property.sections.availability'), icon: HiClock },
-    { id: 'booking', label: t('property.sections.booking'), icon: HiLightningBolt }
+    { id: 'availability', label: t('property.sections.availability'), icon: HiClock }
   ]
 
   return (
@@ -564,7 +563,7 @@ const handleDateRangeSelect = (dates) => {
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => scrollToSection('booking')}
+                onClick={() => setShowBookingModal(true)}
                 className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700
                          text-white font-semibold py-4 px-6 rounded-xl transition-all flex items-center justify-center space-x-2 shadow-lg"
               >
@@ -945,18 +944,22 @@ const handleDateRangeSelect = (dates) => {
                 />
 
                 <div id="availability" className="hidden lg:block">
-                    <AvailabilityFinder
-                      propertyId={property.id}
-                      onSelectDates={handleDateRangeSelect}
-                      onOpenCalculator={(checkIn, checkOut) => {
-                        setSelectedDates({ checkIn, checkOut })
-                        setShowCalculator(true)
-                      }}
-                      onShowAlternatives={(params) => {
-                        setAlternativesParams(params)
-                        setShowAlternatives(true)
-                      }}
-                    />
+                  <AvailabilityFinder
+                    propertyId={property.id}
+                    onSelectDates={handleDateRangeSelect}
+                    onOpenCalculator={(checkIn, checkOut) => {
+                      setSelectedDates({ checkIn, checkOut })
+                      setShowCalculator(true)
+                    }}
+                    onOpenBooking={(checkIn, checkOut) => {
+                      setSelectedDates({ checkIn, checkOut })
+                      setShowBookingModal(true)
+                    }}
+                    onShowAlternatives={(params) => {
+                      setAlternativesParams(params)
+                      setShowAlternatives(true)
+                    }}
+                  />
                 </div>
               </div>
             </motion.div>
@@ -974,6 +977,10 @@ const handleDateRangeSelect = (dates) => {
                   onOpenCalculator={(checkIn, checkOut) => {
                     setSelectedDates({ checkIn, checkOut })
                     setShowCalculator(true)
+                  }}
+                  onOpenBooking={(checkIn, checkOut) => {
+                    setSelectedDates({ checkIn, checkOut })
+                    setShowBookingModal(true)
                   }}
                   onShowAlternatives={(params) => {
                     setAlternativesParams(params)
@@ -999,11 +1006,6 @@ const handleDateRangeSelect = (dates) => {
               </motion.div>
             )}
           </div>
-
-            {/* МОБИЛЬНЫЕ: Бронирование */}
-            <div id="booking" className="lg:hidden scroll-mt-28">
-              <BookingForm property={property} selectedDates={selectedDates} />
-            </div>
 
           {/* Sidebar - DESKTOP */}
           <div className="hidden lg:block space-y-6">
@@ -1048,7 +1050,7 @@ const handleDateRangeSelect = (dates) => {
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => scrollToSection('booking')}
+                onClick={() => setShowBookingModal(true)}
                 className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700
                          text-white font-semibold py-4 px-6 rounded-xl
                          transition-all flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
@@ -1063,40 +1065,37 @@ const handleDateRangeSelect = (dates) => {
                 </p>
               </div>
             </motion.div>
-
-            <motion.div
-              id="booking"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.4 }}
-              className="scroll-mt-28"
-            >
-              <BookingForm property={property} selectedDates={selectedDates} />
-            </motion.div>
           </div>
         </div>
       </div>
 
       {/* Price Calculator Modal */}
-        <PriceCalculator
-          propertyId={property.id}
-          property={property}
-          isOpen={showCalculator}
-          onClose={() => setShowCalculator(false)}
-          blockedDates={property.blockedDates || []}
-          bookings={property.bookings || []}
-          initialCheckIn={selectedDates?.checkIn}
-          initialCheckOut={selectedDates?.checkOut}
-          onOpenBooking={(checkIn, checkOut) => {
-            setSelectedDates({ checkIn, checkOut })
-            setShowBookingForm(true)
-          }}
-          onShowAlternatives={(params) => {
-            setAlternativesParams(params)
-            setShowAlternatives(true)
-          }}
+          <PriceCalculator
+            propertyId={property.id}
+            property={property}
+            isOpen={showCalculator}
+            onClose={() => setShowCalculator(false)}
+            blockedDates={property.blockedDates || []}
+            bookings={property.bookings || []}
+            initialCheckIn={selectedDates?.checkIn}
+            initialCheckOut={selectedDates?.checkOut}
+            onOpenBooking={(checkIn, checkOut) => {
+              setSelectedDates({ checkIn, checkOut })
+              setShowCalculator(false)
+              setShowBookingModal(true)
+            }}
+            onShowAlternatives={(params) => {
+              setAlternativesParams(params)
+              setShowAlternatives(true)
+            }}
+          />
+        {/* Booking Modal */}
+        <BookingForm 
+          property={property} 
+          selectedDates={selectedDates}
+          isOpen={showBookingModal}
+          onClose={() => setShowBookingModal(false)}
         />
-
       {/* Map Modal */}
       <AnimatePresence>
         {showMapModal && (
