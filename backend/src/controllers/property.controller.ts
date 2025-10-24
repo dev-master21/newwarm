@@ -1869,7 +1869,7 @@ async findAvailableSlots(req: Request, res: Response) {
     console.log(`🔍 Поиск свободных слотов для объекта #${propertyId}`);
     console.log(`Режим: ${searchMode}, Ночей: ${nightsCount}, Лимит: ${limit}`);
 
-    // ИСПРАВЛЕНО: Получаем блокировки
+    // Получаем блокировки
     const blockedDates: any = await db.query(
       `SELECT DATE_FORMAT(blocked_date, '%Y-%m-%d') as date
        FROM property_calendar
@@ -1879,7 +1879,7 @@ async findAvailableSlots(req: Request, res: Response) {
       [propertyId]
     );
 
-    // ИСПРАВЛЕНО: Получаем бронирования
+    // Получаем бронирования
     const bookings: any = await db.query(
       `SELECT DATE_FORMAT(pb.check_in_date, '%Y-%m-%d') as check_in,
               DATE_FORMAT(pb.check_out_date, '%Y-%m-%d') as check_out
@@ -1891,7 +1891,7 @@ async findAvailableSlots(req: Request, res: Response) {
 
     const blockedDatesSet = new Set(blockedDates.map((b: any) => b.date));
     
-    // ИСПРАВЛЕНО: Добавляем даты из бронирований (НЕ включая check_out)
+    // Добавляем даты из бронирований (НЕ включая check_out)
     bookings.forEach((booking: any) => {
       let currentDate = new Date(booking.check_in);
       const checkOutDate = new Date(booking.check_out);
@@ -1901,6 +1901,57 @@ async findAvailableSlots(req: Request, res: Response) {
         currentDate.setDate(currentDate.getDate() + 1);
       }
     });
+
+    // ИСПРАВЛЕНО: Получаем ВСЕ сезонные цены
+    const pricing: any = await db.query(
+      `SELECT 
+        start_date_recurring,
+        end_date_recurring,
+        price_per_night,
+        minimum_nights,
+        season_type
+       FROM property_pricing 
+       WHERE property_id = ?
+       ORDER BY price_per_night ASC`,
+      [propertyId]
+    );
+
+    if (pricing.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No pricing information available'
+      });
+    }
+
+    // ИСПРАВЛЕНО: Функция для проверки попадания даты в диапазон сезона (формат DD-MM)
+    const isDateInRange = (targetDay: number, targetMonth: number, startDateStr: string, endDateStr: string): boolean => {
+      const [startDay, startMonth] = startDateStr.split('-').map(Number);
+      const [endDay, endMonth] = endDateStr.split('-').map(Number);
+
+      // Если период в пределах одного года
+      if (startMonth < endMonth || (startMonth === endMonth && startDay <= endDay)) {
+        if (targetMonth > startMonth && targetMonth < endMonth) {
+          return true;
+        }
+        if (targetMonth === startMonth && targetDay >= startDay) {
+          return true;
+        }
+        if (targetMonth === endMonth && targetDay <= endDay) {
+          return true;
+        }
+        return false;
+      } 
+      // Если период переходит через Новый год
+      else {
+        if (targetMonth > startMonth || (targetMonth === startMonth && targetDay >= startDay)) {
+          return true;
+        }
+        if (targetMonth < endMonth || (targetMonth === endMonth && targetDay <= endDay)) {
+          return true;
+        }
+        return false;
+      }
+    };
 
     // Функция проверки доступности периода
     const isRangeAvailable = (startDate: Date, nights: number): boolean => {
@@ -1948,33 +1999,42 @@ async findAvailableSlots(req: Request, res: Response) {
         const checkOutDate = new Date(currentDate);
         checkOutDate.setDate(checkOutDate.getDate() + nightsCount);
 
-        // Расчет цены для периода
+        // ИСПРАВЛЕНО: Расчет цены с учетом сезонов
         let slotTotalPrice = 0;
         let tempDate = new Date(checkInDate);
 
         console.log(`\n🔍 Расчет цены для периода ${checkInDate.toISOString().split('T')[0]} - ${checkOutDate.toISOString().split('T')[0]}`);
 
-        // ИСПРАВЛЕНО: Проходим по каждому дню в периоде (НЕ включая check_out)
+        // Проходим по каждому дню в периоде (НЕ включая check_out)
         for (let i = 0; i < nightsCount; i++) {
+          const month = tempDate.getMonth() + 1;
+          const day = tempDate.getDate();
           const dayStr = tempDate.toISOString().split('T')[0];
           
-          console.log(`\n📅 День ${i + 1}: ${dayStr}`);
+          console.log(`\n📅 День ${i + 1}: ${dayStr} (${day}.${month})`);
           
-          const dayPricing: any = await db.query(
-            `SELECT price_per_night, season_type
-             FROM property_pricing
-             WHERE property_id = ?
-             ORDER BY price_per_night ASC
-             LIMIT 1`,
-            [propertyId]
-          );
+          // ИСПРАВЛЕНО: Ищем подходящий сезон для этой даты
+          let dayPrice = 0;
+          let seasonType = 'standard';
 
-          if (dayPricing.length > 0) {
-            const dayPrice = parseFloat(dayPricing[0].price_per_night);
-            slotTotalPrice += dayPrice;
-            console.log(`   💰 Цена: ฿${dayPrice} (${dayPricing[0].season_type})`);
+          for (const period of pricing) {
+            if (isDateInRange(day, month, period.start_date_recurring, period.end_date_recurring)) {
+              dayPrice = parseFloat(period.price_per_night);
+              seasonType = period.season_type || 'standard';
+              console.log(`   ✅ Найден сезон: ${period.start_date_recurring} - ${period.end_date_recurring}`);
+              console.log(`   💰 Цена: ฿${dayPrice} (${seasonType})`);
+              break;
+            }
           }
 
+          // Если не нашли сезон, берем минимальную цену
+          if (dayPrice === 0 && pricing.length > 0) {
+            dayPrice = Math.min(...pricing.map((p: any) => parseFloat(p.price_per_night)));
+            seasonType = 'low';
+            console.log(`   ⚠️ Сезон не найден, используем минимальную цену: ฿${dayPrice}`);
+          }
+
+          slotTotalPrice += dayPrice;
           tempDate.setDate(tempDate.getDate() + 1);
         }
 
@@ -2013,54 +2073,63 @@ async findAvailableSlots(req: Request, res: Response) {
 }
 
 /**
- * Проверка доступности периода (переработанный)
- * POST /properties/:propertyId/check-period
+ * Проверка доступности периода бронирования
+ * POST /properties/:propertyId/check-period-availability
  */
 async checkPeriodAvailability(req: Request, res: Response) {
   try {
     const { propertyId } = req.params;
     const { startDate, endDate, nightsCount } = req.body;
 
-    console.log(`🔍 Проверка доступности объекта #${propertyId} на период: ${startDate} - ${endDate}`);
+    console.log(`🔍 Проверка доступности периода для объекта #${propertyId}`);
+    console.log(`Период: ${startDate} - ${endDate}, Ночей: ${nightsCount}`);
 
-    // ИСПРАВЛЕНО: Получаем блокировки из календаря (НЕ включая границы)
-    const blockedDates: any = await db.query(
-      `SELECT DATE_FORMAT(blocked_date, '%Y-%m-%d') as date
-       FROM property_calendar
-       INNER JOIN properties p ON property_calendar.property_id = p.id
-       WHERE property_calendar.property_id = ?
-       AND p.deleted_at IS NULL
-       AND blocked_date >= ?
-       AND blocked_date < ?`,
+    // Получаем список занятых дат из календаря
+    const calendarBlocked: any = await db.query(
+      `SELECT blocked_date 
+       FROM property_calendar pc
+       INNER JOIN properties p ON pc.property_id = p.id
+       WHERE pc.property_id = ? 
+       AND pc.blocked_date >= ? 
+       AND pc.blocked_date < ?
+       AND p.deleted_at IS NULL`,
       [propertyId, startDate, endDate]
     );
 
-    // ИСПРАВЛЕНО: Получаем бронирования с правильной логикой пересечения
+    const occupiedDates: string[] = calendarBlocked.map((row: any) => 
+      row.blocked_date.toISOString().split('T')[0]
+    );
+
+    console.log(`📅 Заблокировано дат в календаре: ${occupiedDates.length}`);
+
+    // Получаем все активные бронирования, которые пересекаются с периодом
     const bookings: any = await db.query(
-      `SELECT DATE_FORMAT(pb.check_in_date, '%Y-%m-%d') as check_in,
-              DATE_FORMAT(pb.check_out_date, '%Y-%m-%d') as check_out
+      `SELECT check_in_date, check_out_date 
        FROM property_bookings pb
        INNER JOIN properties p ON pb.property_id = p.id
        WHERE pb.property_id = ? 
-       AND pb.status != 'cancelled' 
+       AND pb.status != 'cancelled'
        AND p.deleted_at IS NULL
        AND (
          (pb.check_in_date >= ? AND pb.check_in_date < ?) OR
-         (? > pb.check_in_date AND ? < pb.check_out_date)
+         (? >= pb.check_in_date AND ? < pb.check_out_date)
        )`,
       [propertyId, startDate, endDate, startDate, startDate]
     );
 
-    // Собираем все занятые даты
-    const occupiedDates: string[] = [];
-    blockedDates.forEach((b: any) => occupiedDates.push(b.date));
+    console.log(`📊 Найдено активных бронирований: ${bookings.length}`);
 
-    // ИСПРАВЛЕНО: Добавляем даты из бронирований (НЕ включая check_out)
+    // Добавляем занятые даты из бронирований
+    // ВАЖНО: Начинаем со второго дня (check_in_date + 1), так как первый день - это день выезда предыдущего бронирования
     bookings.forEach((booking: any) => {
-      let currentDate = new Date(booking.check_in);
-      const checkOutDate = new Date(booking.check_out);
+      const checkIn = new Date(booking.check_in_date);
+      const checkOut = new Date(booking.check_out_date);
       
-      while (currentDate < checkOutDate) {
+      // Начинаем с check_in_date + 1 день (первый день свободен для заезда)
+      let currentDate = new Date(checkIn);
+      currentDate.setDate(currentDate.getDate() + 1);
+      
+      while (currentDate < checkOut) {
         const dateStr = currentDate.toISOString().split('T')[0];
         if (!occupiedDates.includes(dateStr)) {
           occupiedDates.push(dateStr);
@@ -2113,7 +2182,7 @@ async checkPeriodAvailability(req: Request, res: Response) {
           testDate.setDate(testDate.getDate() + i);
           const testDateStr = testDate.toISOString().split('T')[0];
 
-          // ИСПРАВЛЕНО: Проверяем занятость даты
+          // ИСПРАВЛЕНО: Проверяем занятость даты с правильной логикой
           const isOccupied: any = await db.query(
             `SELECT COUNT(*) as count
              FROM (
@@ -2121,27 +2190,25 @@ async checkPeriodAvailability(req: Request, res: Response) {
                FROM property_calendar pc
                INNER JOIN properties p ON pc.property_id = p.id
                WHERE pc.property_id = ? AND pc.blocked_date = ? AND p.deleted_at IS NULL
+               
                UNION
-               SELECT DATE(d.date) as date
+               
+               SELECT DATE_ADD(pb.check_in_date, INTERVAL n DAY) as date
                FROM property_bookings pb
                INNER JOIN properties p ON pb.property_id = p.id
                CROSS JOIN (
-                 SELECT DATE_ADD(pb.check_in_date, INTERVAL n DAY) as date
-                 FROM (
-                   SELECT 0 as n UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 
-                   UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9
-                   UNION SELECT 10 UNION SELECT 11 UNION SELECT 12 UNION SELECT 13 UNION SELECT 14
-                   UNION SELECT 15 UNION SELECT 16 UNION SELECT 17 UNION SELECT 18 UNION SELECT 19
-                   UNION SELECT 20 UNION SELECT 21 UNION SELECT 22 UNION SELECT 23 UNION SELECT 24
-                   UNION SELECT 25 UNION SELECT 26 UNION SELECT 27 UNION SELECT 28 UNION SELECT 29
-                   UNION SELECT 30
-                 ) numbers
-                 WHERE DATE_ADD(pb.check_in_date, INTERVAL n DAY) < pb.check_out_date
-               ) d
+                 SELECT 1 as n UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5
+                 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9 UNION SELECT 10
+                 UNION SELECT 11 UNION SELECT 12 UNION SELECT 13 UNION SELECT 14 UNION SELECT 15
+                 UNION SELECT 16 UNION SELECT 17 UNION SELECT 18 UNION SELECT 19 UNION SELECT 20
+                 UNION SELECT 21 UNION SELECT 22 UNION SELECT 23 UNION SELECT 24 UNION SELECT 25
+                 UNION SELECT 26 UNION SELECT 27 UNION SELECT 28 UNION SELECT 29 UNION SELECT 30
+               ) numbers
                WHERE pb.property_id = ? 
-               AND pb.status != 'cancelled' 
-               AND p.deleted_at IS NULL
-               AND DATE(d.date) = ?
+                 AND pb.status != 'cancelled'
+                 AND p.deleted_at IS NULL
+                 AND DATE_ADD(pb.check_in_date, INTERVAL n DAY) < pb.check_out_date
+                 AND DATE_ADD(pb.check_in_date, INTERVAL n DAY) = ?
              ) as occupied`,
             [propertyId, testDateStr, propertyId, testDateStr]
           );
@@ -2223,7 +2290,7 @@ async findAlternativeProperties(req: Request, res: Response) {
 
     const current = currentProperty[0];
 
-    // ИСПРАВЛЕНО: Ищем альтернативные объекты с правильной логикой доступности
+    // Ищем альтернативные объекты
     const alternatives: any = await db.query(
       `SELECT DISTINCT
         p.id,
@@ -2232,9 +2299,14 @@ async findAlternativeProperties(req: Request, res: Response) {
         p.bedrooms,
         p.bathrooms,
         p.indoor_area,
+        p.outdoor_area,
+        p.region,
+        p.google_maps_link,
+        p.latitude,
+        p.longitude,
+        p.created_at,
         pt.property_name,
-        (SELECT MIN(price_per_night) FROM property_pricing WHERE property_id = p.id) as price_per_night,
-        (SELECT photo_url FROM property_photos WHERE property_id = p.id AND is_primary = TRUE LIMIT 1) as cover_photo
+        (SELECT MIN(price_per_night) FROM property_pricing WHERE property_id = p.id) as min_price
       FROM properties p
       LEFT JOIN property_translations pt ON p.id = pt.property_id AND pt.language_code = 'ru'
       WHERE p.id != ?
@@ -2258,9 +2330,29 @@ async findAlternativeProperties(req: Request, res: Response) {
           )
         )
       ORDER BY p.created_at DESC
-      LIMIT 5`,
-      [propertyId, current.bedrooms, startDate, endDate, startDate, endDate, startDate, startDate]
+      LIMIT 6`,
+      [propertyId, current.bedrooms || 1, startDate, endDate, startDate, endDate, startDate, startDate]
     );
+
+    // Получаем фотографии для каждого объекта
+    for (const property of alternatives) {
+      const photos: any = await db.query(
+        `SELECT id, photo_url, category, sort_order, is_primary
+         FROM property_photos
+         WHERE property_id = ?
+         ORDER BY is_primary DESC, sort_order ASC`,
+        [property.id]
+      );
+      
+      property.photos = photos;
+      
+      // Преобразуем min_price в число
+      if (property.min_price) {
+        property.min_price = parseFloat(property.min_price);
+      }
+      
+      console.log(`📸 Объект #${property.id}: ${photos.length} фото, min_price: ฿${property.min_price}`);
+    }
 
     console.log(`✅ Найдено альтернативных объектов: ${alternatives.length}`);
 
