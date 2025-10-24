@@ -1424,16 +1424,16 @@ class PropertyController {
 
       // Получаем занятые даты из календаря
       const calendarBlocks: any = await db.query(
-        `SELECT blocked_date, reason
+        `SELECT DATE_FORMAT(blocked_date, '%Y-%m-%d') as blocked_date, reason
          FROM property_calendar
          WHERE property_id = ?
          AND blocked_date >= CURDATE()
          ORDER BY blocked_date`,
         [propertyId]
       );
-
+      
       property.blockedDates = calendarBlocks.map((block: any) => ({
-        date: block.blocked_date,
+        date: block.blocked_date,  // Теперь это строка YYYY-MM-DD
         reason: block.reason
       }));
 
@@ -1864,6 +1864,512 @@ class PropertyController {
       return res.status(500).json({
         success: false,
         message: 'Failed to get tomorrow price'
+      });
+    }
+  }
+/**
+ * Поиск свободных периодов для бронирования
+ * POST /properties/:propertyId/find-available-slots
+ */
+async findAvailableSlots(req: Request, res: Response) {
+  try {
+    const { propertyId } = req.params;
+    const { searchMode, month, year, startDate, endDate, nightsCount, limit = 10 } = req.body;
+
+    console.log(`🔍 Поиск свободных периодов для объекта #${propertyId}`);
+    console.log(`Режим: ${searchMode}, Ночей: ${nightsCount}`);
+
+    // Получаем информацию об объекте
+    const properties: any = await db.query(
+      `SELECT p.*, pt.property_name
+       FROM properties p
+       LEFT JOIN property_translations pt ON p.id = pt.property_id AND pt.language_code = 'ru'
+       WHERE p.id = ? AND p.status = 'published' AND p.deleted_at IS NULL`,
+      [propertyId]
+    );
+
+    if (!properties || properties.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Property not found'
+      });
+    }
+
+    const property = properties[0];
+
+    // Получаем все занятые даты ТОЛЬКО от НЕудаленных объектов
+    const blockedDates: any = await db.query(
+      `SELECT DATE_FORMAT(pc.blocked_date, '%Y-%m-%d') as date
+       FROM property_calendar pc
+       INNER JOIN properties p ON pc.property_id = p.id
+       WHERE pc.property_id = ? AND p.deleted_at IS NULL`,
+      [propertyId]
+    );
+
+    const bookings: any = await db.query(
+      `SELECT DATE_FORMAT(pb.check_in_date, '%Y-%m-%d') as check_in,
+              DATE_FORMAT(pb.check_out_date, '%Y-%m-%d') as check_out
+       FROM property_bookings pb
+       INNER JOIN properties p ON pb.property_id = p.id
+       WHERE pb.property_id = ? AND pb.status != 'cancelled' AND p.deleted_at IS NULL`,
+      [propertyId]
+    );
+
+    const blockedDatesSet = new Set(blockedDates.map((b: any) => b.date));
+    
+    // Добавляем даты из бронирований
+    bookings.forEach((booking: any) => {
+      let currentDate = new Date(booking.check_in);
+      const checkOutDate = new Date(booking.check_out);
+      
+      while (currentDate < checkOutDate) {
+        blockedDatesSet.add(currentDate.toISOString().split('T')[0]);
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    });
+
+    // Функция проверки доступности периода
+    const isRangeAvailable = (startDate: Date, nights: number): boolean => {
+      for (let i = 0; i < nights; i++) {
+        const checkDate = new Date(startDate);
+        checkDate.setDate(checkDate.getDate() + i);
+        const dateStr = checkDate.toISOString().split('T')[0];
+        
+        if (blockedDatesSet.has(dateStr)) {
+          return false;
+        }
+      }
+      return true;
+    };
+
+    let availableSlots: any[] = [];
+    let searchStartDate: Date;
+    let searchEndDate: Date;
+
+    // Определяем диапазон поиска в зависимости от режима
+    if (searchMode === 'month') {
+      searchStartDate = new Date(year, month - 1, 1);
+      searchEndDate = new Date(year, month, 0);
+    } else {
+      searchStartDate = new Date(startDate);
+      searchEndDate = new Date(endDate);
+    }
+
+    // Не ищем в прошлом
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (searchStartDate < today) {
+      searchStartDate = today;
+    }
+
+    console.log(`📅 Диапазон поиска: ${searchStartDate.toISOString().split('T')[0]} - ${searchEndDate.toISOString().split('T')[0]}`);
+
+    // Поиск свободных периодов
+    let currentDate = new Date(searchStartDate);
+    let foundCount = 0;
+
+    while (currentDate <= searchEndDate && foundCount < limit) {
+      if (isRangeAvailable(currentDate, nightsCount)) {
+        const checkInDate = new Date(currentDate);
+        const checkOutDate = new Date(currentDate);
+        checkOutDate.setDate(checkOutDate.getDate() + nightsCount);
+
+        // ПРАВИЛЬНЫЙ расчет цены - для каждого дня в периоде
+        let slotTotalPrice = 0;
+        let tempDate = new Date(checkInDate);
+
+        console.log(`\n🔍 Расчет цены для периода ${checkInDate.toISOString().split('T')[0]} - ${checkOutDate.toISOString().split('T')[0]}`);
+
+        // Проходим по каждому дню в периоде и суммируем цены
+        for (let i = 0; i < nightsCount; i++) {
+          const dayStr = tempDate.toISOString().split('T')[0];
+          
+          console.log(`\n📅 День ${i + 1}: ${dayStr}`);
+          
+            const dayPricing: any = await db.query(
+              `SELECT price_per_night, season_type, start_date, end_date, start_date_recurring, end_date_recurring
+               FROM property_pricing
+               WHERE property_id = ?
+               AND (
+                 (start_date_recurring IS NOT NULL 
+                  AND end_date_recurring IS NOT NULL 
+                  AND DATE_FORMAT(?, '%m-%d') BETWEEN start_date_recurring AND end_date_recurring)
+                 OR
+                 (start_date IS NOT NULL 
+                  AND end_date IS NOT NULL 
+                  AND ? BETWEEN start_date AND end_date)
+               )
+               ORDER BY season_type DESC
+               LIMIT 1`,
+              [propertyId, dayStr, dayStr]
+            );
+
+          console.log(`🔎 Найдено pricing записей: ${dayPricing.length}`);
+          if (dayPricing.length > 0) {
+            console.log(`💰 price_per_night из pricing:`, dayPricing[0].price_per_night);
+            console.log(`🌊 season_type:`, dayPricing[0].season_type);
+            console.log(`📆 start_date:`, dayPricing[0].start_date);
+            console.log(`📆 end_date:`, dayPricing[0].end_date);
+            console.log(`🔄 start_date_recurring:`, dayPricing[0].start_date_recurring);
+            console.log(`🔄 end_date_recurring:`, dayPricing[0].end_date_recurring);
+          }
+          console.log(`💵 sale_price объекта:`, property.sale_price);
+
+          // Получаем цену за день с проверками
+          let dayPrice = 0;
+          if (dayPricing.length > 0 && dayPricing[0].price_per_night) {
+            dayPrice = Number(dayPricing[0].price_per_night);
+            console.log(`✅ Используем цену из pricing: ${dayPrice}`);
+          } else if (property.sale_price) {
+            dayPrice = Number(property.sale_price);
+            console.log(`⚠️ Используем sale_price: ${dayPrice}`);
+          } else {
+            dayPrice = 0;
+            console.log(`❌ Цена не найдена, используем 0`);
+          }
+
+          // Проверяем что dayPrice - это число
+          if (isNaN(dayPrice)) {
+            console.log(`🚨 dayPrice это NaN! Устанавливаем 0`);
+            dayPrice = 0;
+          }
+
+          slotTotalPrice += dayPrice;
+          console.log(`📊 Цена за день: ${dayPrice}, Накопленная сумма: ${slotTotalPrice}`);
+          
+          tempDate.setDate(tempDate.getDate() + 1);
+        }
+
+        console.log(`\n💵 Итоговая цена за ${nightsCount} ночей: ${slotTotalPrice}`);
+        console.log(`💵 Средняя цена за ночь: ${slotTotalPrice / nightsCount}\n`);
+
+        // Проверяем что итоговая цена - это число
+        if (isNaN(slotTotalPrice)) {
+          slotTotalPrice = 0;
+        }
+
+        const pricePerNight = nightsCount > 0 ? Math.round(slotTotalPrice / nightsCount) : 0;
+
+        console.log(`✨ Найден слот: ${checkInDate.toISOString().split('T')[0]} - ${checkOutDate.toISOString().split('T')[0]}`);
+        console.log(`💰 Цена за ${nightsCount} ночей: ${Math.round(slotTotalPrice)} (средняя за ночь: ${pricePerNight})`);
+
+        availableSlots.push({
+          checkIn: checkInDate.toISOString().split('T')[0],
+          checkOut: checkOutDate.toISOString().split('T')[0],
+          nights: nightsCount,
+          pricePerNight: Math.round(pricePerNight),
+          totalPrice: Math.round(slotTotalPrice),
+          seasonType: null
+        });
+
+        foundCount++;
+      }
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    console.log(`✅ Найдено ${availableSlots.length} свободных периодов`);
+
+    res.json({
+      success: true,
+      data: {
+        availableSlots,
+        totalFound: availableSlots.length,
+        property: {
+          id: property.id,
+          name: property.property_name,
+          propertyNumber: property.property_number
+        }
+      }
+    });
+  } catch (error) {
+    console.error('❌ Find available slots error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to find available slots'
+    });
+  }
+}
+
+  /**
+   * Проверка доступности конкретного периода
+   * POST /properties/:propertyId/check-period
+   */
+  async checkPeriodAvailability(req: Request, res: Response) {
+    try {
+      const { propertyId } = req.params;
+      const { startDate, endDate, nightsCount } = req.body;
+
+      console.log(`🔍 Проверка доступности периода для объекта #${propertyId}`);
+      console.log(`Период: ${startDate} - ${endDate}, Ночей: ${nightsCount}`);
+
+      // ИСПРАВЛЕНИЕ: Получаем занятые даты ТОЛЬКО от НЕудаленных объектов
+      const blockedDates: any = await db.query(
+        `SELECT DATE_FORMAT(pc.blocked_date, '%Y-%m-%d') as date
+         FROM property_calendar pc
+         INNER JOIN properties p ON pc.property_id = p.id
+         WHERE pc.property_id = ? AND p.deleted_at IS NULL
+         AND pc.blocked_date BETWEEN ? AND ?`,
+        [propertyId, startDate, endDate]
+      );
+
+      const bookings: any = await db.query(
+        `SELECT DATE_FORMAT(pb.check_in_date, '%Y-%m-%d') as check_in,
+                DATE_FORMAT(pb.check_out_date, '%Y-%m-%d') as check_out
+         FROM property_bookings pb
+         INNER JOIN properties p ON pb.property_id = p.id
+         WHERE pb.property_id = ? AND pb.status != 'cancelled' AND p.deleted_at IS NULL
+         AND ((pb.check_in_date BETWEEN ? AND ?)
+              OR (pb.check_out_date BETWEEN ? AND ?)
+              OR (pb.check_in_date <= ? AND pb.check_out_date >= ?))`,
+        [propertyId, startDate, endDate, startDate, endDate, startDate, endDate]
+      );
+
+      // Собираем все занятые даты
+      const occupiedDates: string[] = [];
+      blockedDates.forEach((b: any) => occupiedDates.push(b.date));
+
+      bookings.forEach((booking: any) => {
+        let currentDate = new Date(booking.check_in);
+        const checkOutDate = new Date(booking.check_out);
+        
+        while (currentDate < checkOutDate) {
+          const dateStr = currentDate.toISOString().split('T')[0];
+          if (!occupiedDates.includes(dateStr)) {
+            occupiedDates.push(dateStr);
+          }
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      });
+
+      occupiedDates.sort();
+
+      // Подсчитываем свободные и занятые дни
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      let totalDays = 0;
+      let freeDays = 0;
+      let occupiedDaysCount = 0;
+
+      let currentDate = new Date(start);
+      while (currentDate <= end) {
+        totalDays++;
+        const dateStr = currentDate.toISOString().split('T')[0];
+        if (occupiedDates.includes(dateStr)) {
+          occupiedDaysCount++;
+        } else {
+          freeDays++;
+        }
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      const isFullyAvailable = occupiedDaysCount === 0;
+      const isPartiallyAvailable = freeDays >= nightsCount && !isFullyAvailable;
+
+      // Если период занят, ищем ближайшие свободные периоды (до 7 дней в будущее)
+      let nearestSlots: any[] = [];
+      
+      if (!isFullyAvailable) {
+        const searchStart = new Date(end);
+        searchStart.setDate(searchStart.getDate() + 1);
+        const searchEnd = new Date(searchStart);
+        searchEnd.setDate(searchEnd.getDate() + 7);
+
+        let checkDate = new Date(searchStart);
+        let foundCount = 0;
+
+        while (checkDate <= searchEnd && foundCount < 3) {
+          // Проверяем доступность периода
+          let isAvailable = true;
+          for (let i = 0; i < nightsCount; i++) {
+            const testDate = new Date(checkDate);
+            testDate.setDate(testDate.getDate() + i);
+            const testDateStr = testDate.toISOString().split('T')[0];
+
+            // ИСПРАВЛЕНИЕ: Проверяем только НЕудаленные объекты
+            const isOccupied: any = await db.query(
+              `SELECT COUNT(*) as count
+               FROM (
+                 SELECT pc.blocked_date as date 
+                 FROM property_calendar pc
+                 INNER JOIN properties p ON pc.property_id = p.id
+                 WHERE pc.property_id = ? AND pc.blocked_date = ? AND p.deleted_at IS NULL
+                 UNION
+                 SELECT pb.check_in_date as date 
+                 FROM property_bookings pb
+                 INNER JOIN properties p ON pb.property_id = p.id
+                 WHERE pb.property_id = ? AND pb.status != 'cancelled' AND p.deleted_at IS NULL
+                 AND ? BETWEEN pb.check_in_date AND pb.check_out_date
+               ) as occupied`,
+              [propertyId, testDateStr, propertyId, testDateStr]
+            );
+
+            if (isOccupied[0].count > 0) {
+              isAvailable = false;
+              break;
+            }
+          }
+
+          if (isAvailable) {
+            const slotCheckOut = new Date(checkDate);
+            slotCheckOut.setDate(slotCheckOut.getDate() + nightsCount);
+
+            nearestSlots.push({
+              checkIn: checkDate.toISOString().split('T')[0],
+              checkOut: slotCheckOut.toISOString().split('T')[0],
+              nights: nightsCount
+            });
+
+            foundCount++;
+          }
+
+          checkDate.setDate(checkDate.getDate() + 1);
+        }
+      }
+
+      console.log(`📊 Результат: ${isFullyAvailable ? 'Полностью свободен' : 'Занят'}`);
+      console.log(`📊 Свободных дней: ${freeDays}/${totalDays}`);
+
+      res.json({
+        success: true,
+        data: {
+          isFullyAvailable,
+          isPartiallyAvailable,
+          totalDays,
+          freeDays,
+          occupiedDays: occupiedDaysCount,
+          occupiedDates,
+          nearestSlots
+        }
+      });
+    } catch (error) {
+      console.error('❌ Check period availability error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to check period availability'
+      });
+    }
+  }
+
+  /**
+   * Поиск альтернативных объектов (переработанный)
+   * POST /properties/:propertyId/find-alternative-properties
+   */
+  async findAlternativeProperties(req: Request, res: Response) {
+    try {
+      const { propertyId } = req.params;
+      const { startDate, endDate, nightsCount } = req.body;
+
+      console.log(`🔍 Поиск альтернативных объектов для #${propertyId}`);
+      console.log(`Период: ${startDate} - ${endDate}, Ночей: ${nightsCount}`);
+
+      // Получаем информацию о текущем объекте
+      const currentProperty: any = await db.query(
+        `SELECT p.*, pt.property_name
+         FROM properties p
+         LEFT JOIN property_translations pt ON p.id = pt.property_id AND pt.language_code = 'ru'
+         WHERE p.id = ? AND p.deleted_at IS NULL`,
+        [propertyId]
+      );
+
+      if (!currentProperty || currentProperty.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Property not found'
+        });
+      }
+
+      const currentProp = currentProperty[0];
+
+      // Получаем все опубликованные объекты (кроме текущего)
+      const allProperties: any = await db.query(
+        `SELECT 
+          p.*,
+          pt.property_name,
+          (SELECT photo_url FROM property_photos WHERE property_id = p.id ORDER BY sort_order LIMIT 1) as cover_photo
+         FROM properties p
+         LEFT JOIN property_translations pt ON p.id = pt.property_id AND pt.language_code = 'ru'
+         WHERE p.id != ? AND p.status = 'published' AND p.deleted_at IS NULL
+         AND p.deal_type = 'rent'`,
+        [propertyId]
+      );
+
+      // Фильтруем доступные объекты и рассчитываем цены
+      const availableProperties: any[] = [];
+
+      for (const property of allProperties) {
+        // ИСПРАВЛЕНИЕ: Проверяем доступность только для НЕудаленных объектов
+        const blockedDates: any = await db.query(
+          `SELECT COUNT(*) as count
+           FROM property_calendar pc
+           INNER JOIN properties p ON pc.property_id = p.id
+           WHERE pc.property_id = ? AND p.deleted_at IS NULL
+           AND pc.blocked_date BETWEEN ? AND ?`,
+          [property.id, startDate, endDate]
+        );
+
+        const bookings: any = await db.query(
+          `SELECT COUNT(*) as count
+           FROM property_bookings pb
+           INNER JOIN properties p ON pb.property_id = p.id
+           WHERE pb.property_id = ? AND pb.status != 'cancelled' AND p.deleted_at IS NULL
+           AND ((pb.check_in_date BETWEEN ? AND ?)
+                OR (pb.check_out_date BETWEEN ? AND ?)
+                OR (pb.check_in_date <= ? AND pb.check_out_date >= ?))`,
+          [property.id, startDate, endDate, startDate, endDate, startDate, endDate]
+        );
+
+        const isAvailable = blockedDates[0].count === 0 && bookings[0].count === 0;
+
+        if (isAvailable) {
+          // Получаем цену для периода
+          const pricing: any = await db.query(
+            `SELECT price_per_night
+             FROM property_pricing
+             WHERE property_id = ?
+             AND ((start_date_recurring <= ? AND end_date_recurring >= ?)
+                  OR (start_date <= ? AND end_date >= ?))
+             ORDER BY season_type DESC
+             LIMIT 1`,
+            [property.id, startDate, startDate, startDate, startDate]
+          );
+
+          const pricePerNight = pricing.length > 0 ? pricing[0].price_per_night : property.sale_price || 0;
+          const totalPrice = pricePerNight * nightsCount;
+
+          availableProperties.push({
+            id: property.id,
+            propertyNumber: property.property_number,
+            propertyName: property.property_name,
+            propertyType: property.property_type,
+            region: property.region,
+            bedrooms: property.bedrooms,
+            bathrooms: property.bathrooms,
+            indoorArea: property.indoor_area,
+            coverPhoto: property.cover_photo,
+            pricePerNight,
+            totalPrice,
+            priceDifference: Math.abs(totalPrice - (currentProp.sale_price * nightsCount))
+          });
+        }
+      }
+
+      // Сортируем по разнице в цене (самые близкие по цене - первыми)
+      availableProperties.sort((a, b) => a.priceDifference - b.priceDifference);
+
+      console.log(`✅ Найдено ${availableProperties.length} альтернативных объектов`);
+
+      res.json({
+        success: true,
+        data: {
+          alternatives: availableProperties,
+          totalFound: availableProperties.length
+        }
+      });
+    } catch (error) {
+      console.error('❌ Find alternatives error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to find alternatives'
       });
     }
   }
