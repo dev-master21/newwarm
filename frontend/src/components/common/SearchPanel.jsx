@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -6,6 +6,7 @@ import { HiX, HiSearch, HiCalendar, HiChevronDown } from 'react-icons/hi'
 import { IoBedOutline } from 'react-icons/io5'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
+import { propertyService } from '../../services/property.service'
 
 const SearchPanel = ({ isOpen, onClose }) => {
   const { t, i18n } = useTranslation()
@@ -17,6 +18,14 @@ const SearchPanel = ({ isOpen, onClose }) => {
     bedrooms: '',
     villaName: ''
   })
+  
+  // Состояния для подсчета объектов
+  const [availableCount, setAvailableCount] = useState(null)
+  const [isCountingLoading, setIsCountingLoading] = useState(false)
+  const [showCount, setShowCount] = useState(false)
+  
+  // Ref для debounce таймера
+  const debounceTimerRef = useRef(null)
 
   // Функция для правильного склонения спален
   const getBedroomLabel = (count) => {
@@ -46,6 +55,83 @@ const SearchPanel = ({ isOpen, onClose }) => {
     
     return `${num} ${t('search.bedroom2')}`
   }
+
+  // Функция для подсчета доступных объектов
+  const countAvailableProperties = useCallback(async (params) => {
+    try {
+      setIsCountingLoading(true)
+      const response = await propertyService.countAvailableProperties(params)
+      
+      if (response.success) {
+        setAvailableCount(response.data.count)
+        setShowCount(true)
+      }
+    } catch (error) {
+      console.error('Error counting properties:', error)
+      setAvailableCount(null)
+      setShowCount(false)
+    } finally {
+      setIsCountingLoading(false)
+    }
+  }, [])
+
+  // Debounced функция для поиска по имени
+  const debouncedCountByName = useCallback((villaName, otherParams) => {
+    // Очищаем предыдущий таймер
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+    }
+
+    // Устанавливаем новый таймер на 2 секунды
+    debounceTimerRef.current = setTimeout(() => {
+      const params = { ...otherParams }
+      if (villaName) {
+        params.villaName = villaName
+      }
+      countAvailableProperties(params)
+    }, 1000)
+  }, [countAvailableProperties])
+
+// Эффект для отслеживания изменений параметров поиска
+useEffect(() => {
+  // Проверяем, есть ли хотя бы один параметр для поиска
+  const hasSearchParams = searchData.checkIn || searchData.checkOut || searchData.bedrooms || searchData.villaName
+
+  // Если нет никаких параметров - скрываем подсчет
+  if (!hasSearchParams) {
+    setShowCount(false)
+    setAvailableCount(null)
+    return
+  }
+
+  const params = {}
+
+  // Добавляем даты если они указаны
+  if (searchData.checkIn && searchData.checkOut) {
+    params.checkIn = searchData.checkIn.toISOString().split('T')[0]
+    params.checkOut = searchData.checkOut.toISOString().split('T')[0]
+  }
+
+  // Добавляем спальни если указаны
+  if (searchData.bedrooms) {
+    params.bedrooms = searchData.bedrooms
+  }
+
+  // Для имени виллы используем debounce
+  if (searchData.villaName) {
+    debouncedCountByName(searchData.villaName, params)
+  } else {
+    // Если имя не указано, делаем запрос сразу
+    countAvailableProperties(params)
+  }
+
+  // Cleanup функция для очистки таймера
+  return () => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+    }
+  }
+}, [searchData.checkIn, searchData.checkOut, searchData.bedrooms, searchData.villaName, countAvailableProperties, debouncedCountByName])
 
   const handleSearch = () => {
     const params = new URLSearchParams()
@@ -291,6 +377,56 @@ const SearchPanel = ({ isOpen, onClose }) => {
                                    placeholder:text-gray-400 dark:placeholder:text-gray-500"
                         />
                       </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Available Properties Count */}
+                <AnimatePresence>
+                  {showCount && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      className="mt-4"
+                    >
+                      {isCountingLoading ? (
+                        <div className="flex items-center justify-center space-x-2 py-3 px-4 
+                                      bg-gray-100 dark:bg-gray-700/50 rounded-xl">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#ba2e2d]"></div>
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            {t('search.counting')}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className={`py-3 px-4 rounded-xl text-center ${
+                          availableCount === 0
+                            ? 'bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800'
+                            : 'bg-green-50 dark:bg-green-900/20 border-2 border-green-200 dark:border-green-800'
+                        }`}>
+                          {availableCount === 0 ? (
+                            <div className="space-y-2">
+                              <p className="text-sm font-semibold text-red-700 dark:text-red-400">
+                                {t('search.noPropertiesFound')}
+                              </p>
+                              <p className="text-xs text-red-600 dark:text-red-500">
+                                {t('search.tryChangingParameters')}
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-1">
+                              <p className="text-sm font-semibold text-green-700 dark:text-green-400">
+                                {t('search.foundProperties', { count: availableCount })}
+                              </p>
+                              {!searchData.checkIn && !searchData.checkOut && (
+                                <p className="text-xs text-green-600 dark:text-green-500">
+                                  {t('search.showingAllMatching')}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>

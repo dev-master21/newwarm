@@ -496,24 +496,6 @@ const VideoPlayer = ({ videoUrl, isOpen, onClose }) => {
                 )}
               </AnimatePresence>
             </div>
-
-            {/* Bottom CTA */}
-            {showControls && !isFullscreen && (
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                className="mt-6 flex items-center justify-center space-x-4"
-              >
-                <button className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white 
-                               rounded-lg font-medium transition-all shadow-lg">
-                  Book Your Dream Villa
-                </button>
-                <button className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white 
-                               rounded-lg font-medium transition-all backdrop-blur-sm">
-                  View All Villas
-                </button>
-              </motion.div>
-            )}
           </div>
         </motion.div>
       </motion.div>

@@ -1,190 +1,335 @@
-// frontend/src/components/Map/PropertyMapModal.jsx
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
-import { HiX, HiChevronLeft, HiChevronRight, HiCurrencyDollar, HiLocationMarker } from 'react-icons/hi'
-import { useNavigate } from 'react-router-dom'
+import { 
+  HiX,
+  HiChevronLeft,
+  HiChevronRight,
+  HiHeart
+} from 'react-icons/hi'
+import { IoBedOutline, IoExpand } from 'react-icons/io5'
+import { MdBathtub } from 'react-icons/md'
+import { FaUsers } from 'react-icons/fa'
+import { useShortlistStore } from '../../store/shortlistStore'
+import toast from 'react-hot-toast'
 
 const PropertyMapModal = ({ property, onClose }) => {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0)
+  const [touchStart, setTouchStart] = useState(0)
+  const [touchEnd, setTouchEnd] = useState(0)
+  const { addItem, removeItem, isInShortlist } = useShortlistStore()
 
   if (!property) return null
 
   const photos = property.photos || []
   const hasPhotos = photos.length > 0
 
-  const getPhotoUrl = (photoUrl) => {
+  const getThumbnailUrl = useCallback((photoUrl) => {
     if (!photoUrl) return '/placeholder-villa.jpg'
+    const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'
     if (photoUrl.startsWith('http')) return photoUrl
-    return `${import.meta.env.VITE_API_URL}${photoUrl}`
-  }
-
-  const nextPhoto = (e) => {
-    e.stopPropagation()
-    if (hasPhotos) {
-      setCurrentPhotoIndex((prev) => (prev + 1) % photos.length)
+    
+    const lastDot = photoUrl.lastIndexOf('.')
+    if (lastDot > 0) {
+      const thumbPath = photoUrl.substring(0, lastDot) + '_thumb' + photoUrl.substring(lastDot)
+      return `${baseUrl}${thumbPath}`
     }
-  }
+    return `${baseUrl}${photoUrl}`
+  }, [])
 
-  const prevPhoto = (e) => {
+  const handlePrevPhoto = useCallback((e) => {
     e.stopPropagation()
-    if (hasPhotos) {
-      setCurrentPhotoIndex((prev) => (prev - 1 + photos.length) % photos.length)
-    }
-  }
+    setCurrentPhotoIndex((prev) => (prev === 0 ? photos.length - 1 : prev - 1))
+  }, [photos.length])
 
-  const handleViewDetails = () => {
+  const handleNextPhoto = useCallback((e) => {
+    e.stopPropagation()
+    setCurrentPhotoIndex((prev) => (prev === photos.length - 1 ? 0 : prev + 1))
+  }, [photos.length])
+
+  const handleTouchStart = useCallback((e) => {
+    setTouchStart(e.touches[0].clientX)
+  }, [])
+
+  const handleTouchMove = useCallback((e) => {
+    setTouchEnd(e.touches[0].clientX)
+  }, [])
+
+  const handleTouchEnd = useCallback(() => {
+    if (!touchStart || !touchEnd) return
+    
+    const distance = touchStart - touchEnd
+    const isLeftSwipe = distance > 50
+    const isRightSwipe = distance < -50
+
+    if (isLeftSwipe && currentPhotoIndex < photos.length - 1) {
+      setCurrentPhotoIndex(prev => prev + 1)
+    }
+    if (isRightSwipe && currentPhotoIndex > 0) {
+      setCurrentPhotoIndex(prev => prev - 1)
+    }
+
+    setTouchStart(0)
+    setTouchEnd(0)
+  }, [touchStart, touchEnd, currentPhotoIndex, photos.length])
+
+  const handleCardClick = useCallback(() => {
     navigate(`/properties/${property.id}`)
     onClose()
-  }
+  }, [navigate, property.id, onClose])
+
+  const handleShortlistToggle = useCallback((e) => {
+    e.stopPropagation()
+    if (isInShortlist(property.id)) {
+      removeItem(property.id)
+      toast.success(t('featured.removedFromShortlist'))
+    } else {
+      addItem(property)
+      toast.success(t('featured.addedToShortlist'))
+    }
+  }, [property, isInShortlist, addItem, removeItem, t])
+
+  // Закрытие при клике на оверлей
+  const handleOverlayClick = useCallback((e) => {
+    if (e.target === e.currentTarget) {
+      onClose()
+    }
+  }, [onClose])
+
+  // Закрытие при нажатии Escape
+  React.useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+    
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [onClose])
 
   const formatPrice = (price) => {
-    if (!price) return t('map.modal.priceOnRequest')
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(price)
+    if (!price) return t('featured.priceOnRequest')
+    return new Intl.NumberFormat('ru-RU').format(Math.round(price))
   }
+
+  const formatNumber = (num) => {
+    if (!num) return '0'
+    return Math.round(num)
+  }
+
+  const guestsCount = property.bedrooms ? Math.round(property.bedrooms) * 2 : 0
 
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      >
+      <div className="modal-container">
+        {/* Backdrop/Overlay */}
         <motion.div
-          initial={{ scale: 0.9, opacity: 0, y: 20 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.9, opacity: 0, y: 20 }}
-          transition={{ type: 'spring', duration: 0.5 }}
-          className="relative w-full max-w-2xl bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          onClick={handleOverlayClick}
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
         >
-          {/* Close Button */}
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center
-                     bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-full
-                     hover:bg-white dark:hover:bg-gray-700 transition-all
-                     shadow-lg hover:shadow-xl transform hover:scale-110 active:scale-95"
+          {/* Modal Content Container */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            onClick={(e) => e.stopPropagation()}
+            className="property-modal-container relative w-full"
           >
-            <HiX className="w-6 h-6 text-gray-700 dark:text-gray-300" />
-          </button>
-
-          {/* Photo Carousel */}
-          <div className="relative h-80 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 overflow-hidden">
-            <AnimatePresence mode="wait">
-              {hasPhotos ? (
-                <motion.img
-                  key={currentPhotoIndex}
-                  initial={{ opacity: 0, scale: 1.1 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.3 }}
-                  src={getPhotoUrl(photos[currentPhotoIndex])}
-                  alt={property.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <HiLocationMarker className="w-24 h-24 text-gray-400 dark:text-gray-500" />
-                </div>
-              )}
-            </AnimatePresence>
-
-            {/* Navigation Arrows */}
-            {hasPhotos && photos.length > 1 && (
-              <>
-                <button
-                  onClick={prevPhoto}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12
-                           bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-full
-                           flex items-center justify-center shadow-lg
-                           hover:bg-white dark:hover:bg-gray-700 transition-all
-                           transform hover:scale-110 active:scale-95"
-                >
-                  <HiChevronLeft className="w-6 h-6 text-gray-700 dark:text-gray-300" />
-                </button>
-                <button
-                  onClick={nextPhoto}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12
-                           bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-full
-                           flex items-center justify-center shadow-lg
-                           hover:bg-white dark:hover:bg-gray-700 transition-all
-                           transform hover:scale-110 active:scale-95"
-                >
-                  <HiChevronRight className="w-6 h-6 text-gray-700 dark:text-gray-300" />
-                </button>
-              </>
-            )}
-
-            {/* Photo Counter */}
-            {hasPhotos && photos.length > 1 && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2
-                           bg-black/60 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium">
-                {currentPhotoIndex + 1} / {photos.length}
-              </div>
-            )}
-          </div>
-
-          {/* Property Info */}
-          <div className="p-6 space-y-4">
-            {/* Title */}
-            <div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                {property.name}
-              </h3>
-              <div className="flex items-center text-gray-600 dark:text-gray-400">
-                <HiLocationMarker className="w-5 h-5 mr-2 text-red-600" />
-                <span className="text-sm">{property.address || property.region}</span>
-              </div>
-            </div>
-
-            {/* Price */}
-            <div className="flex items-baseline space-x-2">
-              <div className="flex items-center space-x-2">
-                <HiCurrencyDollar className="w-6 h-6 text-green-600 dark:text-green-400" />
-                <span className="text-3xl font-bold text-gray-900 dark:text-white">
-                  {formatPrice(property.price_per_night)}
-                </span>
-              </div>
-              <span className="text-gray-600 dark:text-gray-400">
-                {t('map.modal.perNight')}
-              </span>
-            </div>
-
-            {/* Property Type Badge */}
-            <div className="flex flex-wrap gap-2">
-              <span className="px-3 py-1 bg-gradient-to-r from-red-500 to-pink-500 
-                             text-white text-sm font-medium rounded-full">
-                {t(`propertyTypes.${property.property_type}`)}
-              </span>
-              <span className="px-3 py-1 bg-gradient-to-r from-blue-500 to-indigo-500 
-                             text-white text-sm font-medium rounded-full">
-                {t(`dealTypes.${property.deal_type}`)}
-              </span>
-            </div>
-
-            {/* View Details Button */}
+            {/* Close Button - фиксированная позиция без transform */}
             <button
-              onClick={handleViewDetails}
-              className="w-full py-4 bg-gradient-to-r from-red-600 to-pink-600
-                       hover:from-red-700 hover:to-pink-700 text-white font-semibold
-                       rounded-xl transition-all transform hover:scale-105 active:scale-95
-                       shadow-lg hover:shadow-xl"
+              onClick={onClose}
+              className="absolute -top-12 right-0 w-10 h-10 flex items-center justify-center
+                       bg-white/90 backdrop-blur-sm rounded-full transition-colors
+                       shadow-lg z-10 hover:bg-white focus:outline-none focus:ring-2 focus:ring-red-500"
+              aria-label="Close modal"
             >
-              {t('map.modal.viewDetails')}
+              <HiX className="w-6 h-6 text-gray-700" />
             </button>
-          </div>
+
+            {/* Property Card - точная копия из FeaturedVillas */}
+            <motion.div
+              onClick={handleCardClick}
+              className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 
+                       shadow-2xl cursor-pointer group"
+            >
+              {/* Image Carousel */}
+              <div className="relative h-64 bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                {hasPhotos ? (
+                  <div 
+                    className="relative h-full"
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                  >
+                    {/* Animated Image with Framer Motion */}
+                    <AnimatePresence mode="wait">
+                      <motion.img
+                        key={currentPhotoIndex}
+                        src={getThumbnailUrl(photos[currentPhotoIndex])}
+                        alt={property.name || t('featured.noName')}
+                        className="w-full h-full object-cover"
+                        initial={{ opacity: 0, scale: 1.05 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ 
+                          duration: 0.4,
+                          ease: [0.4, 0, 0.2, 1]
+                        }}
+                        onError={(e) => {
+                          e.target.src = '/placeholder-villa.jpg'
+                        }}
+                      />
+                    </AnimatePresence>
+
+                    {/* Navigation Arrows */}
+                    {photos.length > 1 && (
+                      <>
+                        <button
+                          onClick={handlePrevPhoto}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 hover:bg-white 
+                                   rounded-full flex items-center justify-center shadow-lg transition-all z-10
+                                   opacity-0 group-hover:opacity-100"
+                        >
+                          <HiChevronLeft className="w-5 h-5 text-gray-800" />
+                        </button>
+                        <button
+                          onClick={handleNextPhoto}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 hover:bg-white 
+                                   rounded-full flex items-center justify-center shadow-lg transition-all z-10
+                                   opacity-0 group-hover:opacity-100"
+                        >
+                          <HiChevronRight className="w-5 h-5 text-gray-800" />
+                        </button>
+
+                        {/* Photo Indicators - БЕЗ "+X" */}
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex space-x-1.5 z-10">
+                          {photos.map((_, idx) => (
+                            <motion.div
+                              key={idx}
+                              className={`h-1.5 rounded-full transition-all ${
+                                idx === currentPhotoIndex 
+                                  ? 'w-6 bg-white' 
+                                  : 'w-1.5 bg-white/50'
+                              }`}
+                              initial={{ scale: 0.8 }}
+                              animate={{ scale: 1 }}
+                              transition={{ duration: 0.2 }}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <div className="text-center">
+                      <HiX className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-500">{t('featured.noPhotos')}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Shortlist Button */}
+                <button
+                  onClick={handleShortlistToggle}
+                  className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center
+                           bg-white/90 hover:bg-white backdrop-blur-sm transition-all z-20 shadow-lg
+                           ${isInShortlist(property.id) ? 'text-red-600' : 'text-gray-600 hover:text-red-600'}`}
+                >
+                  <HiHeart className={`w-5 h-5 ${isInShortlist(property.id) ? 'fill-current' : ''}`} />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="p-5">
+                {/* Title */}
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 line-clamp-1">
+                  {property.name || t('featured.noName')}
+                </h3>
+
+                {/* Features Grid */}
+                <div className="grid grid-cols-4 gap-3 mb-4">
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center mb-1">
+                      <IoBedOutline className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">{t('featured.bedrooms')}</span>
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                      {formatNumber(property.bedrooms)}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mb-1">
+                      <MdBathtub className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">{t('featured.bathrooms')}</span>
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                      {formatNumber(property.bathrooms)}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center mb-1">
+                      <IoExpand className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                    </div>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">{t('featured.area')}</span>
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                      {formatNumber(property.indoor_area)}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center mb-1">
+                      <FaUsers className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    </div>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">{t('featured.guests')}</span>
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                      {guestsCount}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Price Section */}
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      {t('featured.from')}
+                    </span>
+                    <div className="text-right">
+                      <span className="text-2xl font-bold text-[#ba2e2d]">
+                        ฿{formatPrice(property.price_per_night)}
+                      </span>
+                      <span className="text-sm text-gray-500 dark:text-gray-500">
+                        /{t('featured.night')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Details Button */}
+                <button
+                  onClick={handleCardClick}
+                  className="mt-4 w-full bg-gradient-to-r from-[#ba2e2d] to-red-600 hover:from-red-600 hover:to-red-700 
+                           text-white font-semibold py-3 px-4 rounded-xl transition-all shadow-md hover:shadow-lg 
+                           transform hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  {t('featured.details')}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         </motion.div>
-      </motion.div>
+      </div>
     </AnimatePresence>
   )
 }
