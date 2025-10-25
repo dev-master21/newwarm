@@ -2374,6 +2374,392 @@ async findAlternativeProperties(req: Request, res: Response) {
     });
   }
 }
+/**
+ * Подсчет доступных объектов по параметрам поиска
+ * GET /properties/count-available
+ */
+async countAvailableProperties(req: Request, res: Response) {
+  try {
+    const { checkIn, checkOut, bedrooms, villaName } = req.query;
+
+    console.log('🔍 Подсчет доступных объектов');
+    console.log('Параметры:', { checkIn, checkOut, bedrooms, villaName });
+
+    // Базовый запрос для всех опубликованных объектов
+    let query = `
+      SELECT DISTINCT p.id
+      FROM properties p
+      LEFT JOIN property_translations pt ON p.id = pt.property_id AND pt.language_code = 'ru'
+      WHERE p.status = 'published' AND p.deleted_at IS NULL
+    `;
+    
+    const params: any[] = [];
+
+    // Фильтр по количеству спален
+    if (bedrooms) {
+      query += ` AND p.bedrooms >= ?`;
+      params.push(parseInt(bedrooms as string));
+    }
+
+    // Фильтр по имени виллы
+    if (villaName) {
+      query += ` AND (pt.property_name LIKE ? OR p.property_number LIKE ?)`;
+      const searchPattern = `%${villaName}%`;
+      params.push(searchPattern, searchPattern);
+    }
+
+    // Если указаны даты - проверяем доступность
+    if (checkIn && checkOut) {
+      // Исключаем объекты с заблокированными датами в календаре
+      query += ` AND p.id NOT IN (
+        SELECT DISTINCT property_id 
+        FROM property_calendar 
+        WHERE blocked_date >= ? AND blocked_date < ?
+      )`;
+      params.push(checkIn, checkOut);
+
+      // Исключаем объекты с активными бронированиями в этот период
+      query += ` AND p.id NOT IN (
+        SELECT DISTINCT property_id 
+        FROM property_bookings 
+        WHERE status != 'cancelled'
+        AND (
+          (check_in_date >= ? AND check_in_date < ?) OR
+          (? >= check_in_date AND ? < check_out_date)
+        )
+      )`;
+      params.push(checkIn, checkOut, checkIn, checkIn);
+    }
+
+    const properties: any = await db.query(query, params);
+    const count = properties.length;
+
+    console.log(`✅ Найдено объектов: ${count}`);
+
+    res.json({
+      success: true,
+      data: {
+        count,
+        hasResults: count > 0
+      }
+    });
+  } catch (error) {
+    console.error('❌ Count available properties error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to count available properties'
+    });
+  }
+}
+/**
+ * Получение всех опубликованных объектов для страницы Villas с фильтрацией и расчетом цен
+ * GET /properties/villas
+ */
+async getVillasForPage(req: Request, res: Response) {
+  try {
+    const { 
+      checkIn, 
+      checkOut, 
+      bedrooms, 
+      name,
+      page = 1, 
+      limit = 12 
+    } = req.query;
+
+    console.log('🏠 Загрузка вилл для страницы');
+    console.log('Параметры:', { checkIn, checkOut, bedrooms, name, page, limit });
+
+    const currentPage = parseInt(page as string);
+    const itemsPerPage = parseInt(limit as string);
+    const offset = (currentPage - 1) * itemsPerPage;
+
+    // Базовый запрос
+    let query = `
+      SELECT 
+        p.id,
+        p.property_number,
+        p.bedrooms,
+        p.bathrooms,
+        p.indoor_area,
+        p.latitude,
+        p.longitude,
+        p.created_at,
+        pt.property_name
+      FROM properties p
+      LEFT JOIN property_translations pt ON p.id = pt.property_id AND pt.language_code = 'ru'
+      WHERE p.status = 'published' AND p.deleted_at IS NULL
+    `;
+    
+    const params: any[] = [];
+
+    // Фильтр по количеству спален
+    if (bedrooms) {
+      query += ` AND p.bedrooms >= ?`;
+      params.push(parseInt(bedrooms as string));
+    }
+
+    // Фильтр по имени
+    if (name) {
+      query += ` AND (pt.property_name LIKE ? OR p.property_number LIKE ?)`;
+      const searchPattern = `%${name}%`;
+      params.push(searchPattern, searchPattern);
+    }
+
+    // Если указаны даты - фильтруем по доступности
+    if (checkIn && checkOut) {
+      query += ` AND p.id NOT IN (
+        SELECT DISTINCT property_id 
+        FROM property_calendar 
+        WHERE blocked_date >= ? AND blocked_date < ?
+      )`;
+      params.push(checkIn, checkOut);
+
+      query += ` AND p.id NOT IN (
+        SELECT DISTINCT property_id 
+        FROM property_bookings 
+        WHERE status != 'cancelled'
+        AND (
+          (check_in_date >= ? AND check_in_date < ?) OR
+          (? >= check_in_date AND ? < check_out_date)
+        )
+      )`;
+      params.push(checkIn, checkOut, checkIn, checkIn);
+    }
+
+    // Подсчет общего количества - используем те же params
+    const countQuery = `
+      SELECT COUNT(*) as total 
+      FROM properties p
+      LEFT JOIN property_translations pt ON p.id = pt.property_id AND pt.language_code = 'ru'
+      WHERE p.status = 'published' AND p.deleted_at IS NULL
+      ${bedrooms ? 'AND p.bedrooms >= ?' : ''}
+      ${name ? 'AND (pt.property_name LIKE ? OR p.property_number LIKE ?)' : ''}
+      ${checkIn && checkOut ? `AND p.id NOT IN (
+        SELECT DISTINCT property_id FROM property_calendar WHERE blocked_date >= ? AND blocked_date < ?
+      ) AND p.id NOT IN (
+        SELECT DISTINCT property_id FROM property_bookings WHERE status != 'cancelled'
+        AND ((check_in_date >= ? AND check_in_date < ?) OR (? >= check_in_date AND ? < check_out_date))
+      )` : ''}
+    `;
+    
+    const countResult: any = await db.query(countQuery, params);
+    const total = countResult[0].total;
+
+    // ВАЖНО: Используем прямую подстановку для LIMIT и OFFSET, как в getAdminProperties
+    query += ` ORDER BY p.created_at DESC LIMIT ${itemsPerPage} OFFSET ${offset}`;
+
+    const properties: any = await db.query(query, params);
+          
+    console.log(`📦 Получено ${properties.length} объектов из базы`);
+          
+    // Для каждого объекта получаем фотографии и цены
+    for (const property of properties) {
+      console.log(`\n🏠 Обработка объекта #${property.id} (${property.property_name})`);
+      
+      // Фотографии
+      const photos: any = await db.query(
+        `SELECT photo_url FROM property_photos 
+         WHERE property_id = ? 
+         ORDER BY sort_order ASC`,
+        [property.id]
+      );
+      property.photos = photos.map((p: any) => p.photo_url);
+      console.log(`📸 Фотографий: ${property.photos.length}`);
+    
+      // Минимальная цена из всех сезонов
+      const pricing: any = await db.query(
+        `SELECT MIN(price_per_night) as min_price 
+         FROM property_pricing 
+         WHERE property_id = ?`,
+        [property.id]
+      );
+      property.min_price = pricing[0]?.min_price || null;
+      console.log(`💰 Минимальная цена: ${property.min_price}`);
+    
+      // Координаты для карты (если есть)
+      if (property.latitude && property.longitude) {
+        property.coordinates = {
+          lat: parseFloat(property.latitude),
+          lng: parseFloat(property.longitude)
+        };
+      }
+    
+      // Если указаны даты - рассчитываем точную цену
+      if (checkIn && checkOut) {
+        console.log(`📅 Расчет цены для периода: ${checkIn} - ${checkOut}`);
+        
+        const priceData = await this.calculatePriceForPeriod(
+          property.id, 
+          checkIn as string, 
+          checkOut as string
+        );
+        
+        if (priceData) {
+          property.period_price = {
+            total: priceData.totalPrice,
+            average_per_night: priceData.averagePerNight,
+            nights: priceData.nights,
+            checkIn: priceData.checkIn,
+            checkOut: priceData.checkOut
+          };
+          console.log(`✅ Цена за период рассчитана:`, property.period_price);
+        } else {
+          console.log(`❌ Не удалось рассчитать цену за период`);
+        }
+      }
+    
+      // Удаляем created_at из результата (он нужен только для сортировки)
+      delete property.created_at;
+    }
+
+    console.log(`✅ Загружено объектов: ${properties.length} из ${total}`);
+
+    res.json({
+      success: true,
+      data: properties,
+      pagination: {
+        page: currentPage,
+        limit: itemsPerPage,
+        total,
+        pages: Math.ceil(total / itemsPerPage)
+      }
+    });
+  } catch (error) {
+    console.error('❌ Get villas for page error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get villas'
+    });
+  }
+}
+
+/**
+ * Вспомогательная функция для расчета цены за период
+ */
+private async calculatePriceForPeriod(propertyId: number, checkIn: string, checkOut: string) {
+  try {
+    console.log(`\n💵 Начало расчета цены для объекта #${propertyId}`);
+    
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    
+    const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+    console.log(`🌙 Количество ночей: ${nights}`);
+
+    if (nights <= 0) {
+      console.log(`❌ Некорректное количество ночей: ${nights}`);
+      return null;
+    }
+
+    // Получаем все цены для этого объекта
+    const pricing: any = await db.query(
+      `SELECT * FROM property_pricing WHERE property_id = ? ORDER BY id`,
+      [propertyId]
+    );
+
+    console.log(`📊 Найдено сезонных цен: ${pricing.length}`);
+    
+    if (pricing.length === 0) {
+      console.log(`❌ Нет сезонных цен для объекта #${propertyId}`);
+      return null;
+    }
+
+    // Функция для преобразования DD-MM в числовое значение MMDD для сравнения
+    const parseRecurringDate = (ddmm: string): number => {
+      const [day, month] = ddmm.split('-').map(s => parseInt(s));
+      return month * 100 + day; // Например: 24-10 → 1024, 07-10 → 1007
+    };
+
+    // Функция проверки попадания даты в recurring период (с учётом перехода через Новый год)
+    const isDateInRecurringRange = (currentDDMM: string, startDDMM: string, endDDMM: string): boolean => {
+      const current = parseRecurringDate(currentDDMM);
+      const start = parseRecurringDate(startDDMM);
+      const end = parseRecurringDate(endDDMM);
+      
+      // Обычный случай: период внутри одного года
+      if (start <= end) {
+        return current >= start && current <= end;
+      }
+      // Период через Новый год (например 22-12 до 06-01)
+      else {
+        return current >= start || current <= end;
+      }
+    };
+
+    let totalPrice = 0;
+    const currentDate = new Date(checkInDate);
+
+    for (let i = 0; i < nights; i++) {
+      const currentDay = String(currentDate.getDate()).padStart(2, '0');
+      const currentMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
+      const currentDDMM = `${currentDay}-${currentMonth}`;
+      
+      console.log(`\n🔍 День ${i + 1}: Поиск сезона для даты ${currentDate.toISOString().split('T')[0]} (${currentDDMM})`);
+      
+      let priceForDay: number | null = null;
+      let foundSeason: any = null;
+      
+      for (const season of pricing) {
+        // Проверяем есть ли обычные даты start_date/end_date
+        if (season.start_date && season.end_date) {
+          const seasonStart = new Date(season.start_date).toISOString().split('T')[0];
+          const seasonEnd = new Date(season.end_date).toISOString().split('T')[0];
+          const dateStr = currentDate.toISOString().split('T')[0];
+          
+          if (dateStr >= seasonStart && dateStr <= seasonEnd) {
+            priceForDay = parseFloat(season.price_per_night);
+            foundSeason = season;
+            console.log(`    ✅ НАЙДЕН (обычный)! Сезон: ${season.season_type}, Цена: ฿${priceForDay}`);
+            break;
+          }
+        }
+        // Проверяем recurring даты (формат DD-MM)
+        else if (season.start_date_recurring && season.end_date_recurring) {
+          console.log(`    Проверяем recurring сезон #${season.id} (${season.season_type}): ${season.start_date_recurring} - ${season.end_date_recurring}`);
+          
+          if (isDateInRecurringRange(currentDDMM, season.start_date_recurring, season.end_date_recurring)) {
+            priceForDay = parseFloat(season.price_per_night);
+            foundSeason = season;
+            console.log(`    ✅ НАЙДЕН recurring! Сезон: ${season.season_type}, Цена: ฿${priceForDay}`);
+            break;
+          }
+        }
+      }
+
+      // Если не нашли сезон для этой даты
+      if (priceForDay === null || isNaN(priceForDay)) {
+        console.log(`    ⚠️ Сезон не найден для ${currentDDMM}`);
+        // Используем минимальную цену как fallback
+        const minPrice = Math.min(...pricing.map((p: any) => parseFloat(p.price_per_night)));
+        priceForDay = minPrice;
+        console.log(`    Используем минимальную цену: ฿${priceForDay}`);
+      }
+
+      totalPrice += priceForDay;
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    if (isNaN(totalPrice) || totalPrice === 0) {
+      console.log(`❌ Некорректная итоговая цена: ${totalPrice}`);
+      return null;
+    }
+
+    const result = {
+      totalPrice: Math.round(totalPrice),
+      averagePerNight: Math.round(totalPrice / nights),
+      nights,
+      checkIn: checkIn,
+      checkOut: checkOut
+    };
+    
+    console.log(`\n✅ Итоговый расчет: ${nights} ночей = ฿${result.totalPrice} (средняя ฿${result.averagePerNight}/ночь)`);
+    
+    return result;
+  } catch (error) {
+    console.error('❌ Ошибка расчета цены за период:', error);
+    return null;
+  }
+}
 }
 
 export default new PropertyController();

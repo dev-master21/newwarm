@@ -4,6 +4,12 @@ import propertyController from '../controllers/property.controller';
 
 const router = Router();
 
+// Подсчет доступных объектов
+router.get('/count-available', propertyController.countAvailableProperties.bind(propertyController));
+
+// Получение всех вилл для страницы Villas
+router.get('/villas', propertyController.getVillasForPage.bind(propertyController));
+
 // Публичный endpoint для карты (без аутентификации)
 router.get('/map', propertyController.getPropertiesForMap.bind(propertyController));
 

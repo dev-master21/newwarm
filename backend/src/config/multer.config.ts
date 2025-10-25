@@ -48,6 +48,27 @@ const imageFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterC
   }
 };
 
+// Storage для VR панорам
+const vrPanoramaStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const vrDir = path.join(uploadsDir, 'vr-panoramas')
+    fs.ensureDirSync(vrDir)
+    cb(null, vrDir)
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`
+    cb(null, uniqueName)
+  }
+})
+
+export const uploadVRPanorama = multer({
+  storage: vrPanoramaStorage,
+  limits: {
+    fileSize: 50 * 1024 * 1024 // 50MB на файл
+  },
+  fileFilter: imageFilter
+})
+
 // Multer configuration
 export const uploadPropertyPhotos = multer({
   storage: propertyPhotoStorage,
