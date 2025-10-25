@@ -607,3 +607,20 @@ html {
     max-width: 56rem !important;
   }
 }
+/* Модальное окно карточки объекта (более узкое) */
+.property-modal-container {
+  max-width: min(28rem, calc(100vw - 2rem)) !important;
+  width: 100% !important;
+}
+
+@media (min-width: 640px) {
+  .property-modal-container {
+    max-width: 32rem !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .property-modal-container {
+    max-width: 28rem !important;
+  }
+}

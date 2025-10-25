@@ -11,7 +11,6 @@ import { useThemeStore } from './store/themeStore'
 // Lazy load pages
 const Home = lazy(() => import('./pages/Home'))
 const Villas = lazy(() => import('./pages/Villas'))
-const VillaDetail = lazy(() => import('./pages/VillaDetail'))
 const PropertyDetail = lazy(() => import('./pages/PropertyDetail'))
 const About = lazy(() => import('./pages/About'))
 const Contact = lazy(() => import('./pages/Contact'))
@@ -66,11 +65,6 @@ function App() {
             <Route path="villas" element={
               <Suspense fallback={<LoadingScreen />}>
                 <Villas />
-              </Suspense>
-            } />
-            <Route path="villas/:id" element={
-              <Suspense fallback={<LoadingScreen />}>
-                <VillaDetail />
               </Suspense>
             } />
             {/* НОВЫЙ РОУТ для страницы объекта */}

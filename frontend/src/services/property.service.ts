@@ -66,4 +66,16 @@ export const propertyService = {
   async getPropertyById(propertyId: string | number) {
     return await api.get(`/properties/${propertyId}`)
   },
+  /**
+   * Подсчет доступных объектов
+   */
+  async countAvailableProperties(params: any = {}) {
+    return await api.get('/properties/count-available', { params })
+  },
+  /**
+   * Получение вилл для страницы Villas
+   */
+  async getVillasForPage(params: any = {}) {
+    return await api.get('/properties/villas', { params })
+  }
 }

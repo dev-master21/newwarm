@@ -27,6 +27,7 @@ import TranslationsEditor from '../../components/admin/TranslationsEditor'
 import SeasonalPricingEditor from '../../components/admin/SeasonalPricingEditor'
 import PhotosEditor from '../../components/admin/PhotosEditor'
 import FeaturesEditor from '../../components/admin/FeaturesEditor'
+import VRPanoramaEditor from '../../components/admin/VRPanoramaEditor'
 
 const EditProperty = () => {
   const { t } = useTranslation()
@@ -291,8 +292,9 @@ const EditProperty = () => {
         { key: 'construction_year', label: t('admin.editProperty.fields.constructionYear'), type: 'number', min: 1900, max: new Date().getFullYear() },
         { key: 'construction_month', label: t('admin.editProperty.fields.constructionMonth'), type: 'number', min: 1, max: 12 },
         { key: 'furniture_status', label: t('admin.editProperty.fields.furnitureStatus'), type: 'select',
-          options: ['fullyFurnished', 'unfurnished', 'partiallyFurnished'] },
-        { key: 'parking_spaces', label: t('admin.editProperty.fields.parkingSpaces'), type: 'number', min: 0 }
+          options: ['fullyFurnished', 'unfurnished', 'partiallyFurnished', 'negotiable'] },
+        { key: 'parking_spaces', label: t('admin.editProperty.fields.parkingSpaces'), type: 'number', min: 0 },
+        { key: 'pets_allowed', label: t('admin.editProperty.fields.petsAllowed'), type: 'text' }
       ]
     },
     {
@@ -300,21 +302,18 @@ const EditProperty = () => {
       icon: HiShieldCheck,
       color: 'red',
       fields: [
-        { key: 'building_ownership', label: t('admin.editProperty.fields.buildingOwnership'), type: 'select',
-          options: ['freehold', 'leasehold', 'cooperative'] },
-        { key: 'land_ownership', label: t('admin.editProperty.fields.landOwnership'), type: 'select',
-          options: ['freehold', 'leasehold', 'cooperative'] },
-        { key: 'ownership_type', label: t('admin.editProperty.fields.ownershipType'), type: 'select',
-          options: ['individual', 'company', 'foundation'] }
+        { key: 'building_ownership', label: t('admin.editProperty.fields.buildingOwnership'), type: 'text' },
+        { key: 'land_ownership', label: t('admin.editProperty.fields.landOwnership'), type: 'text' },
+        { key: 'ownership_type', label: t('admin.editProperty.fields.ownershipType'), type: 'text' }
       ]
     },
     {
       title: t('admin.editProperty.sections.pricing'),
       icon: HiCash,
-      color: 'emerald',
+      color: 'yellow',
       fields: [
         { key: 'sale_price', label: t('admin.editProperty.fields.salePrice'), type: 'number', min: 0 },
-        { key: 'minimum_nights', label: t('admin.editProperty.fields.minimumNights'), type: 'number', min: 1 }
+        { key: 'minimum_nights', label: t('admin.editProperty.fields.minimumNights'), type: 'number', min: 0 }
       ]
     },
     {
@@ -327,10 +326,10 @@ const EditProperty = () => {
     }
   ], [t])
 
-  // Фильтрация полей по поиску
+  // Фильтрация полей по поисковому запросу
   const filteredGroups = useMemo(() => {
     if (!searchQuery) return fieldGroups
-    
+
     return fieldGroups
       .map(group => ({
         ...group,
@@ -529,6 +528,12 @@ const EditProperty = () => {
         {/* Photos Section */}
         <PhotosEditor
           photos={propertyData?.photos || []}
+          propertyId={propertyId}
+          onUpdate={loadPropertyData}
+        />
+
+        {/* VR Panoramas Section - НОВЫЙ БЛОК */}
+        <VRPanoramaEditor
           propertyId={propertyId}
           onUpdate={loadPropertyData}
         />
