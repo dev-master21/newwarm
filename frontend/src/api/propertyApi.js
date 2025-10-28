@@ -174,6 +174,13 @@ class PropertyApi {
       )
       return response.data
     }
+        /**
+     * Получение VR панорам объекта (публичный endpoint)
+     */
+    async getPropertyVRPanoramas(propertyId) {
+      const response = await axios.get(`/properties/${propertyId}/vr-panoramas`)
+      return response.data
+    }
 }
 
 export default new PropertyApi()
