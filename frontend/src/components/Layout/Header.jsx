@@ -132,20 +132,26 @@ const Header = () => {
                 }`} />
               </button>
 
-              <button
-                onClick={() => setIsLangOpen(!isLangOpen)}
-                className={`p-2 rounded-lg transition-colors ${
-                  isScrolled || location.pathname !== '/'
-                    ? 'hover:bg-gray-100 dark:hover:bg-gray-800'
-                    : 'hover:bg-white/10'
-                }`}
-              >
-                <HiTranslate className={`w-5 h-5 ${
-                  isScrolled || location.pathname !== '/'
-                    ? 'text-gray-700 dark:text-gray-300'
-                    : 'text-white'
-                }`} />
-              </button>
+              {/* Language Switcher - Обёрнут в относительный контейнер */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsLangOpen(!isLangOpen)}
+                  className={`p-2 rounded-lg transition-colors ${
+                    isScrolled || location.pathname !== '/'
+                      ? 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                      : 'hover:bg-white/10'
+                  }`}
+                >
+                  <HiTranslate className={`w-5 h-5 ${
+                    isScrolled || location.pathname !== '/'
+                      ? 'text-gray-700 dark:text-gray-300'
+                      : 'text-white'
+                  }`} />
+                </button>
+
+                {/* Language Switcher Dropdown - теперь внутри контейнера */}
+                <LanguageSwitcher isOpen={isLangOpen} onClose={() => setIsLangOpen(false)} />
+              </div>
 
               <button
                 onClick={toggleTheme}
@@ -211,9 +217,6 @@ const Header = () => {
           </div>
         </div>
       </header>
-
-      {/* Language Switcher Dropdown */}
-      <LanguageSwitcher isOpen={isLangOpen} onClose={() => setIsLangOpen(false)} />
 
       {/* Search Panel */}
       <SearchPanel isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />

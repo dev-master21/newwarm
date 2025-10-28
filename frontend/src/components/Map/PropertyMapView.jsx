@@ -32,7 +32,8 @@ const PropertyMapView = ({ isOpen, onClose }) => {
   const languages = [
     { code: 'ru', name: 'Русский', flag: '🇷🇺' },
     { code: 'en', name: 'English', flag: '🇬🇧' },
-    { code: 'th', name: 'ไทย', flag: '🇹🇭' }
+    { code: 'th', name: 'ไทย', flag: '🇹🇭' },
+    { code: 'zh', name: '中文', flag: '🇨🇳' },
   ]
 
   // Change language

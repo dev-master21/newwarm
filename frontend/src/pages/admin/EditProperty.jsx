@@ -516,6 +516,8 @@ const EditProperty = () => {
         <TranslationsEditor
           translations={propertyData?.translations || []}
           onUpdate={updateTranslation}
+          propertyId={propertyId}
+          onSave={loadPropertyData}
         />
 
         {/* Seasonal Pricing Section */}

@@ -516,6 +516,7 @@ const handleDateRangeSelect = (dates) => {
           <PropertyGallery 
             photos={property.photos} 
             photosByCategory={property.photosByCategory}
+            propertyId={propertyId}
           />
         </motion.div>
 

@@ -15,8 +15,7 @@ const MobileMenu = ({ isOpen, onClose, navLinks }) => {
     { code: 'en', name: 'English' },
     { code: 'ru', name: 'Русский' },
     { code: 'th', name: 'ภาษาไทย' },
-    { code: 'fr', name: 'Français' },
-    { code: 'es', name: 'Español' },
+    { code: 'zh', name: '中文' },
   ]
 
   return (

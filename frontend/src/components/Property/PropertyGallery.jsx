@@ -1,13 +1,22 @@
-import React, { useState } from 'react'
+// frontend/src/components/Property/PropertyGallery.jsx
+import React, { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import { HiX, HiChevronLeft, HiChevronRight, HiPhotograph } from 'react-icons/hi'
+import { MdVrpano } from 'react-icons/md'
+import VRPanorama from './VRPanorama'
+import propertyApi from '../../api/propertyApi'
+import toast from 'react-hot-toast'
 
-const PropertyGallery = ({ photos = [], photosByCategory = {} }) => {
+const PropertyGallery = ({ photos = [], photosByCategory = {}, propertyId }) => {
   const { t } = useTranslation()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [selectedCategory, setSelectedCategory] = useState('all')
+  const [isVROpen, setIsVROpen] = useState(false)
+  const [vrPanoramas, setVrPanoramas] = useState([])
+  const [hasVRPanoramas, setHasVRPanoramas] = useState(false)
+  const [checkingVR, setCheckingVR] = useState(true)
 
   const hasCategories = Object.keys(photosByCategory).length > 1
 
@@ -17,15 +26,52 @@ const PropertyGallery = ({ photos = [], photosByCategory = {} }) => {
     return `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${photoUrl}`
   }
 
-  // Получаем список категорий
   const categories = hasCategories 
     ? ['all', ...Object.keys(photosByCategory).filter(cat => cat !== 'general')]
     : []
 
-  // Фильтруем фотографии по категории
   const filteredPhotos = selectedCategory === 'all' 
     ? photos 
     : (photosByCategory[selectedCategory] || [])
+
+  useEffect(() => {
+    const checkVRAvailability = async () => {
+      if (!propertyId) {
+        setCheckingVR(false)
+        return
+      }
+
+      try {
+        const response = await propertyApi.getPropertyVRPanoramas(propertyId)
+        
+        if (response.success && response.data.panoramas && response.data.panoramas.length > 0) {
+          setHasVRPanoramas(true)
+        }
+      } catch (error) {
+        console.log('No VR panoramas available for this property')
+      } finally {
+        setCheckingVR(false)
+      }
+    }
+
+    checkVRAvailability()
+  }, [propertyId])
+
+  const loadVRPanoramas = async () => {
+    try {
+      const response = await propertyApi.getPropertyVRPanoramas(propertyId)
+      
+      if (response.success && response.data.panoramas.length > 0) {
+        setVrPanoramas(response.data.panoramas)
+        setIsVROpen(true)
+      } else {
+        toast.error(t('vr.errors.noPanoramas'))
+      }
+    } catch (error) {
+      console.error('Error loading VR panoramas:', error)
+      toast.error(t('vr.errors.loadFailed'))
+    }
+  }
 
   const openModal = (index) => {
     setCurrentIndex(index)
@@ -52,7 +98,7 @@ const PropertyGallery = ({ photos = [], photosByCategory = {} }) => {
     if (e.key === 'Escape') closeModal()
   }
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isModalOpen) {
       window.addEventListener('keydown', handleKeyDown)
       return () => window.removeEventListener('keydown', handleKeyDown)
@@ -164,6 +210,61 @@ const PropertyGallery = ({ photos = [], photosByCategory = {} }) => {
         })}
       </div>
 
+      {/* Кнопка VR с пульсацией без изменения цвета */}
+      {!checkingVR && hasVRPanoramas && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="mt-6 w-full"
+        >
+          <motion.button
+            onClick={loadVRPanoramas}
+            className="relative w-full group flex items-center justify-center space-x-3 px-8 py-4 
+                       bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl 
+                       transition-colors cursor-pointer overflow-hidden"
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            animate={{
+              boxShadow: [
+                '0 0 0 0px rgba(59,130,246,0.3), 0 0 0 0px rgba(59,130,246,0.2)',
+                '0 0 0 0px rgba(59,130,246,0.3), 0 0 0 0px rgba(59,130,246,0.2)',
+                '0 0 0 0px rgba(59,130,246,0.3), 0 0 0 0px rgba(59,130,246,0.2)',
+                '0 0 0 0px rgba(59,130,246,0.3), 0 0 0 0px rgba(59,130,246,0.2)',
+                '0 0 0 16px rgba(59,130,246,0), 0 0 0 27px rgba(59,130,246,0)'
+              ],
+              scale: [1, 1.02, 0.99, 1],
+            }}
+            transition={{
+              duration: 1.6,
+              repeat: Infinity,
+              ease: "easeOut",
+              times: [0, 0.18, 0.35, 0.76, 1]
+            }}
+          >
+            {/* Контент кнопки */}
+            <div className="relative z-10 flex items-center space-x-3">
+              <MdVrpano className="w-7 h-7" />
+              <div className="flex flex-col items-start">
+                <span className="text-lg font-bold">{t('property.gallery.view360')}</span>
+                <span className="text-xs text-blue-100">{t('property.gallery.vrTourAvailable')}</span>
+              </div>
+            </div>
+          
+            {/* Hover glow эффект */}
+            <motion.div
+              className="absolute inset-0 rounded-2xl pointer-events-none"
+              initial={{ boxShadow: '0 0 0 0px rgba(59,130,246,0), 0 0 0 0px rgba(59,130,246,0)' }}
+              whileHover={{
+                boxShadow: '0 0 0 4px rgba(59,130,246,0.3), 0 0 0 8px rgba(59,130,246,0.2)'
+              }}
+              transition={{ duration: 0.35 }}
+            />
+          </motion.button>
+        </motion.div>
+      )}
+
+
       {/* Fullscreen Modal */}
       <AnimatePresence>
         {isModalOpen && (
@@ -173,7 +274,6 @@ const PropertyGallery = ({ photos = [], photosByCategory = {} }) => {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-black"
           >
-            {/* Close button */}
             <button
               onClick={closeModal}
               className="absolute top-4 right-4 z-20 w-12 h-12 bg-white/10 backdrop-blur-sm rounded-full
@@ -182,12 +282,10 @@ const PropertyGallery = ({ photos = [], photosByCategory = {} }) => {
               <HiX className="w-6 h-6 text-white" />
             </button>
 
-            {/* Counter */}
             <div className="absolute top-4 left-4 z-20 bg-black/60 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm">
               {currentIndex + 1} / {filteredPhotos.length}
             </div>
 
-            {/* Navigation arrows */}
             <button
               onClick={goToPrev}
               className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 bg-white/10 backdrop-blur-sm 
@@ -204,7 +302,6 @@ const PropertyGallery = ({ photos = [], photosByCategory = {} }) => {
               <HiChevronRight className="w-8 h-8 text-white" />
             </button>
 
-            {/* Image */}
             <div className="w-full h-full flex items-center justify-center p-4">
               <AnimatePresence mode="wait">
                 <motion.img
@@ -220,7 +317,6 @@ const PropertyGallery = ({ photos = [], photosByCategory = {} }) => {
               </AnimatePresence>
             </div>
 
-            {/* Thumbnails */}
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
               <div className="flex space-x-2 overflow-x-auto scrollbar-hide">
                 {filteredPhotos.map((photo, index) => (
@@ -247,6 +343,12 @@ const PropertyGallery = ({ photos = [], photosByCategory = {} }) => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <VRPanorama 
+        panoramas={vrPanoramas}
+        isOpen={isVROpen}
+        onClose={() => setIsVROpen(false)}
+      />
     </div>
   )
 }

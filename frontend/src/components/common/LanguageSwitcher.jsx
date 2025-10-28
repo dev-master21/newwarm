@@ -11,8 +11,7 @@ const LanguageSwitcher = ({ isOpen, onClose }) => {
     { code: 'en', name: 'English', flag: '🇬🇧' },
     { code: 'ru', name: 'Русский', flag: '🇷🇺' },
     { code: 'th', name: 'ภาษาไทย', flag: '🇹🇭' },
-    { code: 'fr', name: 'Français', flag: '🇫🇷' },
-    { code: 'es', name: 'Español', flag: '🇪🇸' },
+    { code: 'zh', name: '中文', flag: '🇨🇳' },
   ]
 
   const handleLanguageChange = (langCode) => {
@@ -31,14 +30,14 @@ const LanguageSwitcher = ({ isOpen, onClose }) => {
         onClick={onClose}
       />
       
-      {/* Dropdown */}
+      {/* Dropdown - теперь позиционируется относительно родителя */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="absolute top-20 right-4 bg-white dark:bg-gray-800 
+            className="absolute top-full right-0 mt-2 bg-white dark:bg-gray-800 
                      rounded-lg shadow-xl overflow-hidden z-50 min-w-[200px]"
           >
             <div className="py-2">
