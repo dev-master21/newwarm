@@ -9,6 +9,7 @@ import adminRoutes from './admin.routes';
 import mapsRoutes from './maps.routes';
 import propertyRoutes from './property.routes';
 import thumbnailRoutes from './thumbnail.routes'; // Добавлено
+import beds24Routes from './beds24.routes';
 
 const router = Router();
 
@@ -24,5 +25,6 @@ router.use('/properties', propertyRoutes);
 // Admin routes
 router.use('/admin', adminRoutes);
 router.use('/thumbnails', thumbnailRoutes); // Добавлено
+router.use('/beds24', beds24Routes);
 
 export default router;
