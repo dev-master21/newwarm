@@ -9,7 +9,8 @@ import {
   HiViewList,
   HiPlus,
   HiFilter,
-  HiRefresh
+  HiRefresh,
+  HiCurrencyDollar
 } from 'react-icons/hi'
 import propertyApi from '../../api/propertyApi'
 import PropertyCard from '../../components/admin/PropertyCard'
@@ -22,6 +23,7 @@ const Properties = () => {
 
   const [properties, setProperties] = useState([])
   const [loading, setLoading] = useState(true)
+  const [syncingPrices, setSyncingPrices] = useState(false)
   const [viewMode, setViewMode] = useState('cards')
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -139,6 +141,41 @@ const Properties = () => {
     })
   }
 
+  const handleSyncPrices = () => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'info',
+      title: t('admin.properties.confirmSyncPrices.title'),
+      message: t('admin.properties.confirmSyncPrices.message'),
+      confirmText: t('admin.properties.confirmSyncPrices.confirm'),
+      cancelText: t('admin.properties.confirmSyncPrices.cancel'),
+      onConfirm: async () => {
+        try {
+          setSyncingPrices(true)
+          toast.loading(t('admin.properties.syncingPrices'), { id: 'sync-prices' })
+          
+          const response = await propertyApi.syncAllPrices()
+          
+          if (response.success) {
+            toast.success(
+              t('admin.properties.syncSuccess', {
+                success: response.data.success,
+                failed: response.data.failed
+              }),
+              { id: 'sync-prices', duration: 5000 }
+            )
+            loadProperties()
+          }
+        } catch (error) {
+          console.error('Failed to sync prices:', error)
+          toast.error(t('admin.properties.syncError'), { id: 'sync-prices' })
+        } finally {
+          setSyncingPrices(false)
+        }
+      }
+    })
+  }
+
   const statusFilters = [
     { value: 'all', label: t('admin.properties.filters.all') },
     { value: 'published', label: t('admin.properties.filters.published') },
@@ -237,6 +274,32 @@ const Properties = () => {
               <HiViewList className="w-5 h-5" />
             </button>
           </div>
+
+          {/* Sync Prices Button */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleSyncPrices}
+            disabled={syncingPrices}
+            className="flex items-center space-x-2 px-4 py-3 bg-gradient-to-r 
+                     from-green-500 to-green-600 hover:from-green-600 hover:to-green-700
+                     disabled:from-gray-400 disabled:to-gray-500
+                     text-white font-medium rounded-lg shadow-md hover:shadow-lg
+                     transition-all duration-300 disabled:cursor-not-allowed"
+            title={t('admin.properties.syncPrices')}
+          >
+            {syncingPrices ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                <span className="hidden sm:inline">{t('admin.properties.syncing')}</span>
+              </>
+            ) : (
+              <>
+                <HiCurrencyDollar className="w-5 h-5" />
+                <span className="hidden sm:inline">{t('admin.properties.syncPrices')}</span>
+              </>
+            )}
+          </motion.button>
 
           {/* Refresh Button */}
           <motion.button

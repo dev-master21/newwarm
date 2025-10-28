@@ -181,6 +181,29 @@ class PropertyApi {
       const response = await axios.get(`/properties/${propertyId}/vr-panoramas`)
       return response.data
     }
+      /**
+   * Получение VR панорам объекта (публичный endpoint)
+   */
+  async getPropertyVRPanoramas(propertyId) {
+    const response = await axios.get(`/properties/${propertyId}/vr-panoramas`)
+    return response.data
+  }
+
+  /**
+   * Синхронизация цен всех объектов с Beds24
+   */
+  async syncAllPrices() {
+    const response = await axios.post('/beds24/sync-all')
+    return response.data
+  }
+
+  /**
+   * Синхронизация цен конкретного объекта с Beds24
+   */
+  async syncPropertyPrices(propertyId) {
+    const response = await axios.post(`/beds24/sync/${propertyId}`)
+    return response.data
+  }
 }
 
 export default new PropertyApi()

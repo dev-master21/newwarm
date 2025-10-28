@@ -22,6 +22,10 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, confirmText,
       bg: 'bg-green-100 dark:bg-green-900/20',
       icon: 'text-green-600 dark:text-green-400',
       button: 'bg-green-500 hover:bg-green-600'
+    },
+    info: {
+    icon: 'text-blue-500',
+    button: 'bg-blue-500 hover:bg-blue-600'
     }
   }
 
