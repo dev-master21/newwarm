@@ -9,9 +9,17 @@ const uploadsDir = path.join(__dirname, '../../uploads');
 const propertiesDir = path.join(uploadsDir, 'properties');
 const photosDir = path.join(propertiesDir, 'photos');
 const floorPlansDir = path.join(propertiesDir, 'floor-plans');
+const vrPanoramasDir = path.join(uploadsDir, 'vr-panoramas'); // Добавлено
 
+// Создаём все необходимые папки
 fs.ensureDirSync(photosDir);
 fs.ensureDirSync(floorPlansDir);
+fs.ensureDirSync(vrPanoramasDir); // Добавлено
+
+console.log('📁 Directories ensured:');
+console.log('  - Photos:', photosDir);
+console.log('  - Floor Plans:', floorPlansDir);
+console.log('  - VR Panoramas:', vrPanoramasDir);
 
 // Storage для фотографий объектов
 const propertyPhotoStorage = multer.diskStorage({
@@ -35,6 +43,17 @@ const floorPlanStorage = multer.diskStorage({
   }
 });
 
+// Storage для VR панорам
+const vrPanoramaStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, vrPanoramasDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`;
+    cb(null, uniqueName);
+  }
+});
+
 // Фильтр файлов (только изображения)
 const imageFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const allowedTypes = /jpeg|jpg|png|gif|webp/;
@@ -48,28 +67,16 @@ const imageFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterC
   }
 };
 
-// Storage для VR панорам
-const vrPanoramaStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const vrDir = path.join(uploadsDir, 'vr-panoramas')
-    fs.ensureDirSync(vrDir)
-    cb(null, vrDir)
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`
-    cb(null, uniqueName)
-  }
-})
-
+// Multer configuration для VR панорам
 export const uploadVRPanorama = multer({
   storage: vrPanoramaStorage,
   limits: {
     fileSize: 50 * 1024 * 1024 // 50MB на файл
   },
   fileFilter: imageFilter
-})
+});
 
-// Multer configuration
+// Multer configuration для фотографий объектов
 export const uploadPropertyPhotos = multer({
   storage: propertyPhotoStorage,
   limits: {
@@ -79,6 +86,7 @@ export const uploadPropertyPhotos = multer({
   fileFilter: imageFilter
 });
 
+// Multer configuration для планировок
 export const uploadFloorPlan = multer({
   storage: floorPlanStorage,
   limits: {

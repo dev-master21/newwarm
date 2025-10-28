@@ -88,8 +88,19 @@ class VRPanoramaController {
       )
       const sortOrder = sortOrderResult[0].next_order
 
-      // Сохраняем панораму в БД
-      const [result]: any = await db.query(
+      // Функция для получения относительного пути
+      const getRelativePath = (file: Express.Multer.File): string => {
+        // Получаем путь относительно директории uploads
+        const uploadsIndex = file.path.indexOf('uploads')
+        if (uploadsIndex !== -1) {
+          return '/' + file.path.substring(uploadsIndex).replace(/\\/g, '/')
+        }
+        // Fallback: используем только filename
+        return `/uploads/vr-panoramas/${file.filename}`
+      }
+
+      // Сохраняем панораму в БД с относительными путями
+      const result: any = await db.query(
         `INSERT INTO property_vr_panoramas 
          (property_id, location_type, location_number, front_image, back_image, left_image, right_image, top_image, bottom_image, sort_order)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -97,12 +108,12 @@ class VRPanoramaController {
           propertyId,
           locationType,
           locationNumber || null,
-          files.front[0].path.replace(/\\/g, '/'),
-          files.back[0].path.replace(/\\/g, '/'),
-          files.left[0].path.replace(/\\/g, '/'),
-          files.right[0].path.replace(/\\/g, '/'),
-          files.top[0].path.replace(/\\/g, '/'),
-          files.bottom[0].path.replace(/\\/g, '/'),
+          getRelativePath(files.front[0]),
+          getRelativePath(files.back[0]),
+          getRelativePath(files.left[0]),
+          getRelativePath(files.right[0]),
+          getRelativePath(files.top[0]),
+          getRelativePath(files.bottom[0]),
           sortOrder
         ]
       )
@@ -165,11 +176,28 @@ class VRPanoramaController {
         panorama[0].bottom_image
       ]
 
+      // Функция для получения полного пути из относительного
+      const getFullPath = (relativePath: string): string => {
+        if (!relativePath) return ''
+        
+        // Если путь уже полный (начинается с /var или C:)
+        if (relativePath.startsWith('/var') || /^[A-Z]:\\/.test(relativePath)) {
+          return relativePath
+        }
+        
+        // Убираем начальный слеш и формируем полный путь
+        const cleanPath = relativePath.startsWith('/') ? relativePath.substring(1) : relativePath
+        return path.join(__dirname, '../../', cleanPath)
+      }
+
       for (const imagePath of images) {
         try {
-          if (imagePath && fs.existsSync(imagePath)) {
-            await fs.unlink(imagePath)
-            console.log(`🗑️ Удалён файл: ${imagePath}`)
+          if (imagePath) {
+            const fullPath = getFullPath(imagePath)
+            if (fs.existsSync(fullPath)) {
+              await fs.unlink(fullPath)
+              console.log(`🗑️ Удалён файл: ${fullPath}`)
+            }
           }
         } catch (error) {
           console.error(`⚠️ Ошибка удаления файла ${imagePath}:`, error)

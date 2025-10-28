@@ -2,8 +2,9 @@
 import { Router } from 'express';
 import propertyController from '../controllers/property.controller';
 import bookingController from '../controllers/booking.controller';
+import vrPanoramaController from '../controllers/vrPanorama.controller';
 import { authenticateAdmin } from '../middlewares/auth.middleware';
-import { uploadPropertyPhotos, uploadFloorPlan } from '../config/multer.config';
+import { uploadPropertyPhotos, uploadFloorPlan, uploadVRPanorama } from '../config/multer.config';
 
 const router = Router();
 
@@ -51,6 +52,31 @@ router.delete('/photos/:photoId', propertyController.deletePhoto);
 
 // Calendar
 router.post('/calendar/validate', propertyController.validateCalendar);
+
+// ==================== VR PANORAMA ROUTES ====================
+
+// Get all VR panoramas for a property
+router.get('/properties/:propertyId/vr-panoramas', vrPanoramaController.getPropertyPanoramas);
+
+// Create new VR panorama with 6 images
+router.post(
+  '/properties/:propertyId/vr-panoramas',
+  uploadVRPanorama.fields([
+    { name: 'front', maxCount: 1 },
+    { name: 'back', maxCount: 1 },
+    { name: 'left', maxCount: 1 },
+    { name: 'right', maxCount: 1 },
+    { name: 'top', maxCount: 1 },
+    { name: 'bottom', maxCount: 1 }
+  ]),
+  vrPanoramaController.createPanorama
+);
+
+// Update panoramas order
+router.put('/properties/:propertyId/vr-panoramas/order', vrPanoramaController.updatePanoramasOrder);
+
+// Delete VR panorama
+router.delete('/vr-panoramas/:panoramaId', vrPanoramaController.deletePanorama);
 
 // ==================== BOOKING ROUTES ====================
 

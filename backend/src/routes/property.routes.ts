@@ -1,6 +1,7 @@
 // backend/src/routes/property.routes.ts
 import { Router } from 'express';
 import propertyController from '../controllers/property.controller';
+import vrPanoramaController from '../controllers/vrPanorama.controller';
 
 const router = Router();
 
@@ -18,6 +19,9 @@ router.get('/:propertyId', propertyController.getPublicPropertyDetails.bind(prop
 router.post('/:propertyId/calculate-price', propertyController.calculatePrice.bind(propertyController));
 router.get('/:propertyId/alternatives', propertyController.findAlternatives.bind(propertyController));
 router.get('/:propertyId/tomorrow-price', propertyController.getTomorrowPrice.bind(propertyController));
+
+// ПУБЛИЧНЫЙ ENDPOINT для VR панорам (без аутентификации)
+router.get('/:propertyId/vr-panoramas', vrPanoramaController.getPropertyPanoramas.bind(vrPanoramaController));
 
 // НОВЫЕ ENDPOINTS для поиска свободных дат
 router.post('/:propertyId/find-available-slots', propertyController.findAvailableSlots.bind(propertyController));
