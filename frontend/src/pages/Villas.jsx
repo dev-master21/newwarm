@@ -495,19 +495,27 @@ const PropertyCard = memo(({ property, index, nights }) => {
               </div>
             ) : (
               // Обычное отображение цены БЕЗ периода
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {t('featured.from')}
-                </span>
-                <div className="text-right">
-                  <span className="text-2xl font-bold text-[#ba2e2d]">
-                    ฿{formatPrice(property.min_price)}
+            <div className="flex items-baseline justify-between">
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                {t('featured.from')}
+              </span>
+              <div className="text-right">
+                {property.min_price && property.min_price > 0 ? (
+                  <>
+                    <span className="text-2xl font-bold text-[#ba2e2d]">
+                      ฿{formatPrice(property.min_price)}
+                    </span>
+                    <span className="text-sm text-gray-500 dark:text-gray-500">
+                      /{t('featured.night')}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-lg font-semibold text-amber-600 dark:text-amber-400">
+                    {t('property.pricing.onRequest')}
                   </span>
-                  <span className="text-sm text-gray-500 dark:text-gray-500">
-                    /{t('featured.night')}
-                  </span>
-                </div>
+                )}
               </div>
+            </div>
             )}
           </div>
 

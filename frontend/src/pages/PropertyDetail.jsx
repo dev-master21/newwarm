@@ -534,8 +534,18 @@ const handleDateRangeSelect = (dates) => {
                 <div className="flex items-baseline space-x-2 mb-1">
                   <span className="text-sm text-gray-600 dark:text-gray-400">{t('property.from')}</span>
                   <span className="text-3xl font-bold text-gray-900 dark:text-white">
-                    ฿{property.seasonalPricing && property.seasonalPricing.length > 0
-                      ? Math.round(Math.min(...property.seasonalPricing.map(p => parseFloat(p.price_per_night)))).toLocaleString()
+                    {property.seasonalPricing && property.seasonalPricing.length > 0
+                      ? (() => {
+                          const prices = property.seasonalPricing
+                            .map(p => parseFloat(p.price_per_night))
+                            .filter(price => price > 0)
+                          
+                          if (prices.length === 0) {
+                            return t('property.pricing.onRequest')
+                          }
+                          
+                          return `₿${Math.round(Math.min(...prices)).toLocaleString()}`
+                        })()
                       : '—'}
                   </span>
                   <span className="text-gray-600 dark:text-gray-400">/ {t('property.night')}</span>
@@ -1020,8 +1030,18 @@ const handleDateRangeSelect = (dates) => {
                 <div className="flex items-baseline space-x-2 mb-1">
                   <span className="text-sm text-gray-600 dark:text-gray-400">{t('property.from')}</span>
                   <span className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">
-                    ฿{property.seasonalPricing && property.seasonalPricing.length > 0
-                      ? Math.round(Math.min(...property.seasonalPricing.map(p => parseFloat(p.price_per_night)))).toLocaleString()
+                    {property.seasonalPricing && property.seasonalPricing.length > 0
+                      ? (() => {
+                          const prices = property.seasonalPricing
+                            .map(p => parseFloat(p.price_per_night))
+                            .filter(price => price > 0)
+
+                          if (prices.length === 0) {
+                            return t('property.pricing.onRequest')
+                          }
+
+                          return `₿${Math.round(Math.min(...prices)).toLocaleString()}`
+                        })()
                       : '—'}
                   </span>
                   <span className="text-gray-600 dark:text-gray-400">/ {t('property.night')}</span>
