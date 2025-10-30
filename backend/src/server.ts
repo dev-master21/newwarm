@@ -10,6 +10,7 @@ import db from './config/database';
 import { thumbnailService } from './services/thumbnail.service';
 import { startThumbnailJob } from './jobs/thumbnail.job';
 import { startBeds24SyncJob } from './jobs/beds24Sync.job';
+import calendarJob from './jobs/calendar.job';
 
 const app = express();
 
@@ -19,6 +20,8 @@ const allowedOrigins = [
   'http://localhost:5173',
   'https://warm.novaestate.company',
   'http://warm.novaestate.company',
+  'http://warmplus.club',
+  'https://warmplus.club',
   config.frontendUrl
 ];
 
@@ -115,7 +118,9 @@ app.listen(PORT, async () => {
   startBeds24SyncJob();
   // Запуск полной синхронизации thumbnails при старте сервера (в фоне)
   console.log('🖼️  Starting initial thumbnail synchronization...\n');
-  
+
+  console.log('\n📅 Starting calendar sync services...');
+  calendarJob.start();
   // Запускаем в фоне, чтобы не блокировать старт сервера
   thumbnailService.fullSync()
     .then((stats) => {

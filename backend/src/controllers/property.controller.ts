@@ -317,7 +317,7 @@ class PropertyController {
             p.bathrooms,
             p.indoor_area,
             pt.property_name as name,
-            (SELECT MIN(price_per_night) FROM property_pricing WHERE property_id = p.id) as price_per_night,
+            (SELECT MIN(price_per_night) FROM property_pricing WHERE property_id = p.id AND price_per_night > 0) as price_per_night,
             (
               SELECT GROUP_CONCAT(
                 pp2.photo_url
@@ -1471,35 +1471,24 @@ class PropertyController {
   }
 
 /**
- * ПУБЛИЧНЫЙ: Расчет стоимости проживания
+ * Расчет стоимости проживания за период
  */
-async calculatePrice(req: Request, res: Response): Promise<Response | void> {
+async calculatePrice(req: Request, res: Response) {
   try {
-    const { propertyId } = req.params as { propertyId: string };
-    const { checkIn, checkOut } = req.body as { checkIn: string; checkOut: string };
-
-    if (!checkIn || !checkOut) {
-      return res.status(400).json({
-        success: false,
-        message: 'Check-in and check-out dates are required'
-      });
-    }
-
-    const checkInDate = new Date(checkIn);
-    const checkOutDate = new Date(checkOut);
-    
-    if (checkInDate >= checkOutDate) {
-      return res.status(400).json({
-        success: false,
-        message: 'Check-out date must be after check-in date'
-      });
-    }
+    const { propertyId } = req.params;
+    const { checkIn, checkOut } = req.body;
 
     console.log(`💰 Расчет цены для объекта #${propertyId}: ${checkIn} - ${checkOut}`);
 
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+
     // Получаем информацию об объекте
     const properties: any = await db.query(
-      'SELECT property_number, property_type FROM properties WHERE id = ? AND deleted_at IS NULL',
+      `SELECT p.*, pt.property_name, pt.description
+       FROM properties p
+       LEFT JOIN property_translations pt ON p.id = pt.property_id AND pt.language_code = 'ru'
+       WHERE p.id = ? AND p.status = 'published' AND p.deleted_at IS NULL`,
       [propertyId]
     );
 
@@ -1512,69 +1501,47 @@ async calculatePrice(req: Request, res: Response): Promise<Response | void> {
 
     const property = properties[0];
 
-    // ИСПРАВЛЕНО: Проверяем блокировки календаря
-    // НЕ включаем день check_out (день выезда)
-    const blockedDates: any = await db.query(
-      `SELECT blocked_date 
-       FROM property_calendar 
-       WHERE property_id = ? 
-       AND blocked_date >= ? 
-       AND blocked_date < ?
-       ORDER BY blocked_date`,
+    // Получаем занятые даты (календарь)
+    const calendarBlocks: any = await db.query(
+      `SELECT DATE_FORMAT(blocked_date, '%Y-%m-%d') as date
+       FROM property_calendar
+       WHERE property_id = ?
+       AND blocked_date >= ? AND blocked_date < ?`,
       [propertyId, checkIn, checkOut]
     );
 
-    // ИСПРАВЛЕНО: Проверяем пересечение с бронированиями
-    // Период занят если существует бронирование где:
-    // - его check_in попадает ВНУТРЬ нашего периода (>= checkIn AND < checkOut)
-    // - или наш checkIn попадает ВНУТРЬ его периода (> их check_in AND < их check_out)
+    // Получаем бронирования
     const bookings: any = await db.query(
-      `SELECT check_in_date, check_out_date 
-       FROM property_bookings 
-       WHERE property_id = ? 
+      `SELECT DATE_FORMAT(check_in_date, '%Y-%m-%d') as check_in,
+              DATE_FORMAT(check_out_date, '%Y-%m-%d') as check_out
+       FROM property_bookings
+       WHERE property_id = ?
        AND status != 'cancelled'
-       AND (
-         (check_in_date >= ? AND check_in_date < ?) OR
-         (? > check_in_date AND ? < check_out_date)
-       )`,
-      [propertyId, checkIn, checkOut, checkIn, checkIn]
+       AND ((check_in_date >= ? AND check_in_date < ?)
+       OR (check_out_date > ? AND check_out_date <= ?)
+       OR (check_in_date <= ? AND check_out_date >= ?))`,
+      [propertyId, checkIn, checkOut, checkIn, checkOut, checkIn, checkOut]
     );
 
-    console.log(`📝 Найдено активных бронирований: ${bookings.length}`);
+    // Собираем все занятые даты
+    const unavailableDates: Set<string> = new Set();
+    calendarBlocks.forEach((block: any) => unavailableDates.add(block.date));
 
-    const isAvailable = blockedDates.length === 0 && bookings.length === 0;
-    const unavailableDates: string[] = [];
+    bookings.forEach((booking: any) => {
+      const start = new Date(booking.check_in);
+      const end = new Date(booking.check_out);
+      let current = new Date(start);
 
-    if (!isAvailable) {
-      // Собираем список занятых дат
-      blockedDates.forEach((block: any) => {
-        const dateStr = block.blocked_date;
-        unavailableDates.push(dateStr);
-        console.log(`   ❌ Заблокирована дата: ${dateStr}`);
-      });
+      while (current < end) {
+        unavailableDates.add(current.toISOString().split('T')[0]);
+        current.setDate(current.getDate() + 1);
+      }
+    });
 
-      // ИСПРАВЛЕНО: Добавляем даты из бронирований
-      // НЕ включаем день check_out (гость выезжает)
-      bookings.forEach((booking: any) => {
-        const bookingStart = new Date(booking.check_in_date);
-        const bookingEnd = new Date(booking.check_out_date);
-        let currentDate = new Date(bookingStart);
-        
-        // Итерация от check_in до check_out (НЕ ВКЛЮЧАЯ check_out)
-        while (currentDate < bookingEnd) {
-          const dateStr = currentDate.toISOString().split('T')[0];
-          if (!unavailableDates.includes(dateStr)) {
-            unavailableDates.push(dateStr);
-            console.log(`   ❌ Забронирована дата: ${dateStr}`);
-          }
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
-      });
+    const isAvailable = unavailableDates.size === 0;
 
-      console.log(`⚠️ Объект недоступен. Всего занятых дат: ${unavailableDates.length}`);
-    } else {
-      console.log(`✅ Объект доступен во все даты периода`);
-    }
+    console.log(`📅 Статус доступности: ${isAvailable ? 'Свободен' : 'Занят'}`);
+    console.log(`🚫 Всего занятых дат: ${unavailableDates.size}`);
 
     // Получаем сезонные цены
     const pricing: any = await db.query(
@@ -1630,8 +1597,9 @@ async calculatePrice(req: Request, res: Response): Promise<Response | void> {
     const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
     
     const priceBreakdown: any[] = [];
+    let hasZeroPriceDays = false; // НОВОЕ: флаг для отслеживания дней с нулевой ценой
 
-    // ИСПРАВЛЕНО: Проходим по каждому дню проживания (НЕ включая день выезда)
+    // Проходим по каждому дню проживания (НЕ включая день выезда)
     while (currentDate < checkOutDate) {
       const month = currentDate.getMonth() + 1;
       const day = currentDate.getDate();
@@ -1648,23 +1616,26 @@ async calculatePrice(req: Request, res: Response): Promise<Response | void> {
         }
       }
 
-      if (dayPrice === 0 && pricing.length > 0) {
-        dayPrice = Math.min(...pricing.map((p: any) => parseFloat(p.price_per_night)));
-        seasonType = 'low';
+      // ИЗМЕНЕНО: Если цена 0, не берем fallback, а отмечаем флаг
+      if (dayPrice === 0) {
+        hasZeroPriceDays = true;
+        console.log(`⚠️ День ${dateStr} имеет нулевую цену`);
       }
 
       totalPrice += dayPrice;
       priceBreakdown.push({
         date: dateStr,
         price: dayPrice,
-        seasonType
+        seasonType,
+        isZeroPrice: dayPrice === 0 // НОВОЕ: флаг для фронтенда
       });
 
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    console.log(`✅ Итого: ${nights} ночей = ฿${totalPrice}${!isAvailable ? ' (ОБЪЕКТ НЕДОСТУПЕН)' : ''}`);
+    console.log(`✅ Итого: ${nights} ночей = ฿${totalPrice}${!isAvailable ? ' (ОБЪЕКТ НЕДОСТУПЕН)' : ''}${hasZeroPriceDays ? ' (ЕСТЬ ДНИ С НУЛЕВОЙ ЦЕНОЙ)' : ''}`);
 
+    // НОВОЕ: Возвращаем флаг о наличии особых цен
     return res.json({
       success: true,
       data: {
@@ -1673,8 +1644,9 @@ async calculatePrice(req: Request, res: Response): Promise<Response | void> {
         pricePerNight: Math.round(totalPrice / nights),
         breakdown: priceBreakdown,
         isAvailable,
-        unavailableDates: unavailableDates.sort(),
-        propertyName: property.property_type || 'Property'
+        unavailableDates: Array.from(unavailableDates).sort(),
+        propertyName: property.property_name || property.property_type || 'Property',
+        hasZeroPriceDays // НОВОЕ: флаг для фронтенда
       }
     });
   } catch (error) {
@@ -1704,7 +1676,7 @@ async calculatePrice(req: Request, res: Response): Promise<Response | void> {
           p.bathrooms,
           p.indoor_area,
           pt.property_name,
-          (SELECT MIN(price_per_night) FROM property_pricing WHERE property_id = p.id) as price_per_night,
+          (SELECT MIN(price_per_night) FROM property_pricing WHERE property_id = p.id AND price_per_night > 0) as price_per_night,
           (SELECT photo_url FROM property_photos WHERE property_id = p.id AND is_primary = TRUE LIMIT 1) as cover_photo
         FROM properties p
         LEFT JOIN property_translations pt ON p.id = pt.property_id AND pt.language_code = 'ru'
@@ -2306,7 +2278,7 @@ async findAlternativeProperties(req: Request, res: Response) {
         p.longitude,
         p.created_at,
         pt.property_name,
-        (SELECT MIN(price_per_night) FROM property_pricing WHERE property_id = p.id) as min_price
+        (SELECT MIN(price_per_night) FROM property_pricing WHERE property_id = p.id AND price_per_night > 0) as min_price
       FROM properties p
       LEFT JOIN property_translations pt ON p.id = pt.property_id AND pt.language_code = 'ru'
       WHERE p.id != ?
@@ -2570,7 +2542,7 @@ async getVillasForPage(req: Request, res: Response) {
       const pricing: any = await db.query(
         `SELECT MIN(price_per_night) as min_price 
          FROM property_pricing 
-         WHERE property_id = ?`,
+         WHERE property_id = ? AND price_per_night > 0`,
         [property.id]
       );
       property.min_price = pricing[0]?.min_price || null;
@@ -2653,94 +2625,78 @@ private async calculatePriceForPeriod(propertyId: number, checkIn: string, check
 
     // Получаем все цены для этого объекта
     const pricing: any = await db.query(
-      `SELECT * FROM property_pricing WHERE property_id = ? ORDER BY id`,
+      `SELECT * FROM property_pricing WHERE property_id = ? ORDER BY start_date_recurring`,
       [propertyId]
     );
 
-    console.log(`📊 Найдено сезонных цен: ${pricing.length}`);
-    
-    if (pricing.length === 0) {
-      console.log(`❌ Нет сезонных цен для объекта #${propertyId}`);
+    if (!pricing || pricing.length === 0) {
+      console.log(`⚠️ Нет ценовых данных для объекта #${propertyId}`);
       return null;
     }
 
-    // Функция для преобразования DD-MM в числовое значение MMDD для сравнения
-    const parseRecurringDate = (ddmm: string): number => {
-      const [day, month] = ddmm.split('-').map(s => parseInt(s));
-      return month * 100 + day; // Например: 24-10 → 1024, 07-10 → 1007
-    };
+    console.log(`📊 Найдено ${pricing.length} ценовых периодов`);
 
-    // Функция проверки попадания даты в recurring период (с учётом перехода через Новый год)
-    const isDateInRecurringRange = (currentDDMM: string, startDDMM: string, endDDMM: string): boolean => {
-      const current = parseRecurringDate(currentDDMM);
-      const start = parseRecurringDate(startDDMM);
-      const end = parseRecurringDate(endDDMM);
-      
-      // Обычный случай: период внутри одного года
-      if (start <= end) {
-        return current >= start && current <= end;
-      }
-      // Период через Новый год (например 22-12 до 06-01)
-      else {
-        return current >= start || current <= end;
+    // Функция для проверки попадания даты в диапазон
+    const isDateInRange = (targetDay: number, targetMonth: number, startDateStr: string, endDateStr: string): boolean => {
+      const [startDay, startMonth] = startDateStr.split('-').map(Number);
+      const [endDay, endMonth] = endDateStr.split('-').map(Number);
+
+      if (startMonth < endMonth || (startMonth === endMonth && startDay <= endDay)) {
+        if (targetMonth > startMonth && targetMonth < endMonth) return true;
+        if (targetMonth === startMonth && targetDay >= startDay) return true;
+        if (targetMonth === endMonth && targetDay <= endDay) return true;
+        return false;
+      } else {
+        if (targetMonth > startMonth || (targetMonth === startMonth && targetDay >= startDay)) return true;
+        if (targetMonth < endMonth || (targetMonth === endMonth && targetDay <= endDay)) return true;
+        return false;
       }
     };
 
     let totalPrice = 0;
-    const currentDate = new Date(checkInDate);
+    let currentDate = new Date(checkInDate);
+    let hasZeroPriceDays = false;
 
-    for (let i = 0; i < nights; i++) {
-      const currentDay = String(currentDate.getDate()).padStart(2, '0');
-      const currentMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
-      const currentDDMM = `${currentDay}-${currentMonth}`;
-      
-      console.log(`\n🔍 День ${i + 1}: Поиск сезона для даты ${currentDate.toISOString().split('T')[0]} (${currentDDMM})`);
+    while (currentDate < checkOutDate) {
+      const month = currentDate.getMonth() + 1;
+      const day = currentDate.getDate();
+      const currentDDMM = `${day.toString().padStart(2, '0')}-${month.toString().padStart(2, '0')}`;
       
       let priceForDay: number | null = null;
-      let foundSeason: any = null;
-      
+
       for (const season of pricing) {
-        // Проверяем есть ли обычные даты start_date/end_date
-        if (season.start_date && season.end_date) {
-          const seasonStart = new Date(season.start_date).toISOString().split('T')[0];
-          const seasonEnd = new Date(season.end_date).toISOString().split('T')[0];
-          const dateStr = currentDate.toISOString().split('T')[0];
+        if (isDateInRange(day, month, season.start_date_recurring, season.end_date_recurring)) {
+          priceForDay = parseFloat(season.price_per_night);
+          console.log(`    ✅ ${currentDDMM}: Сезон: ${season.season_type}, Цена: ฿${priceForDay}`);
           
-          if (dateStr >= seasonStart && dateStr <= seasonEnd) {
-            priceForDay = parseFloat(season.price_per_night);
-            foundSeason = season;
-            console.log(`    ✅ НАЙДЕН (обычный)! Сезон: ${season.season_type}, Цена: ฿${priceForDay}`);
-            break;
+          if (priceForDay === 0) {
+            hasZeroPriceDays = true;
           }
-        }
-        // Проверяем recurring даты (формат DD-MM)
-        else if (season.start_date_recurring && season.end_date_recurring) {
-          console.log(`    Проверяем recurring сезон #${season.id} (${season.season_type}): ${season.start_date_recurring} - ${season.end_date_recurring}`);
-          
-          if (isDateInRecurringRange(currentDDMM, season.start_date_recurring, season.end_date_recurring)) {
-            priceForDay = parseFloat(season.price_per_night);
-            foundSeason = season;
-            console.log(`    ✅ НАЙДЕН recurring! Сезон: ${season.season_type}, Цена: ฿${priceForDay}`);
-            break;
-          }
+          break;
         }
       }
 
-      // Если не нашли сезон для этой даты
+      // ИЗМЕНЕНО: Если не нашли сезон или цена 0, не используем fallback
       if (priceForDay === null || isNaN(priceForDay)) {
         console.log(`    ⚠️ Сезон не найден для ${currentDDMM}`);
-        // Используем минимальную цену как fallback
-        const minPrice = Math.min(...pricing.map((p: any) => parseFloat(p.price_per_night)));
-        priceForDay = minPrice;
-        console.log(`    Используем минимальную цену: ฿${priceForDay}`);
+        // Ищем минимальную НЕНУЛЕВУЮ цену
+        const nonZeroPrices = pricing.map((p: any) => parseFloat(p.price_per_night)).filter((p: number) => p > 0);
+        if (nonZeroPrices.length > 0) {
+          priceForDay = Math.min(...nonZeroPrices);
+          console.log(`    Используем минимальную ненулевую цену: ฿${priceForDay}`);
+        } else {
+          priceForDay = 0;
+          hasZeroPriceDays = true;
+        }
       }
 
       totalPrice += priceForDay;
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    if (isNaN(totalPrice) || totalPrice === 0) {
-      console.log(`❌ Некорректная итоговая цена: ${totalPrice}`);
+    // Если есть дни с нулевой ценой, не возвращаем результат
+    if (hasZeroPriceDays || isNaN(totalPrice) || totalPrice === 0) {
+      console.log(`❌ Некорректная или неполная информация о ценах (нулевые цены присутствуют)`);
       return null;
     }
 
