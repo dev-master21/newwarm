@@ -181,15 +181,16 @@ const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates =
     // 3. Проверяем bookings
     if (bookings && Array.isArray(bookings)) {
       const inBooking = bookings.some(booking => {
-        const checkIn = booking.check_in_date || booking.check_in
-        const checkOut = booking.check_out_date || booking.check_out
+        const checkIn = typeof booking.check_in === 'string' 
+          ? booking.check_in.substring(0, 10)
+          : (booking.check_in_date ? booking.check_in_date.substring(0, 10) : null)
+        const checkOut = typeof booking.check_out === 'string'
+          ? booking.check_out.substring(0, 10)
+          : (booking.check_out_date ? booking.check_out_date.substring(0, 10) : null)
         
         if (!checkIn || !checkOut) return false
         
-        const checkInStr = typeof checkIn === 'string' ? checkIn.substring(0, 10) : checkIn
-        const checkOutStr = typeof checkOut === 'string' ? checkOut.substring(0, 10) : checkOut
-        
-        return dateStr >= checkInStr && dateStr <= checkOutStr
+        return dateStr >= checkIn && dateStr < checkOut
       })
       
       if (inBooking) {
@@ -200,54 +201,6 @@ const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates =
     
     console.log(`✅ Дата ${dateStr} свободна`)
     return true
-  }
-
-  // Проверка занятости КОНКРЕТНОЙ даты (для расчета и визуализации)
-  const isDateOccupiedInPeriod = (dateStr) => {
-    // 1. Если первый день периода - СВОБОДЕН
-    if (freeFirstDays.has(dateStr)) {
-      return false
-    }
-    
-    // 2. Проверяем blockedDates
-    const isBlocked = blockedDates.some(block => {
-      const blockDateStr = typeof block === 'string' ? block : (block.date || block.blocked_date)
-      return blockDateStr?.substring(0, 10) === dateStr
-    })
-    
-    if (isBlocked) {
-      return true
-    }
-    
-    // 3. Проверяем bookings
-    if (bookings && Array.isArray(bookings)) {
-      const inBooking = bookings.some(booking => {
-        const checkIn = booking.check_in_date || booking.check_in
-        const checkOut = booking.check_out_date || booking.check_out
-        
-        if (!checkIn || !checkOut) return false
-        
-        const checkInStr = typeof checkIn === 'string' ? checkIn.substring(0, 10) : checkIn
-        const checkOutStr = typeof checkOut === 'string' ? checkOut.substring(0, 10) : checkOut
-        
-        return dateStr >= checkInStr && dateStr <= checkOutStr
-      })
-      
-      return inBooking
-    }
-    
-    return false
-  }
-
-  // НОВАЯ ФУНКЦИЯ: склонение слова "день"
-  const getDaysWord = (count) => {
-    if (count % 10 === 1 && count % 100 !== 11) {
-      return t('property.priceCalculator.day')
-    } else if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) {
-      return t('property.priceCalculator.daysGenitive')
-    } else {
-      return t('property.priceCalculator.days')
-    }
   }
 
   // Расчет стоимости
@@ -274,6 +227,10 @@ const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates =
       if (response.success) {
         console.log('📊 Результат расчета:', response.data)
         
+        // НОВОЕ: Проверяем наличие дней с нулевой ценой
+        const hasZeroPriceDays = response.data.hasZeroPriceDays || false
+        const zeroPriceDaysCount = response.data.breakdown?.filter((d) => d.isZeroPrice).length || 0
+        
         // Анализ доступности каждого дня
         const enhancedBreakdown = response.data.breakdown.map(day => ({
           ...day,
@@ -283,23 +240,33 @@ const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates =
         // Считаем свободные и занятые дни
         const occupiedDaysInPeriod = enhancedBreakdown.filter(d => d.isOccupied).length
         const freeDaysInPeriod = enhancedBreakdown.filter(d => !d.isOccupied).length
-        const hasOccupiedDays = occupiedDaysInPeriod > 0
+        
+        // ИЗМЕНЕНО: Дни с нулевой ценой также считаем как "занятые" для UI
+        const hasOccupiedDays = occupiedDaysInPeriod > 0 || hasZeroPriceDays
 
         setResult({
           ...response.data,
           breakdown: enhancedBreakdown,
           hasOccupiedDays,
           occupiedDaysCount: occupiedDaysInPeriod,
-          freeDaysCount: freeDaysInPeriod
+          freeDaysCount: freeDaysInPeriod,
+          hasZeroPriceDays, // НОВОЕ
+          zeroPriceDaysCount // НОВОЕ
         })
         
         // ИЗМЕНЕНО: Убрали автоматическое открытие breakdown
         setShowBreakdown(false)
         
         // Toast уведомления
-        if (hasOccupiedDays) {
-          const daysWord = getDaysWord(occupiedDaysInPeriod)
-          toast.error(`${t('property.priceCalculator.toastOccupiedDays', { count: occupiedDaysInPeriod, days: daysWord })} ${t('property.priceCalculator.occupiedShort').toLowerCase()}`)
+        if (hasZeroPriceDays) {
+          // НОВОЕ: Уведомление о днях с особыми ценами
+          toast.error(t('property.priceCalculator.hasSpecialPricing'), {
+            duration: 5000,
+            icon: '⚠️'
+          })
+        } else if (occupiedDaysInPeriod > 0) {
+          const daysWord = occupiedDaysInPeriod === 1 ? t('property.priceCalculator.day') : t('property.priceCalculator.days')
+          toast.error(`${t('property.priceCalculator.toastOccupiedDays')} ${occupiedDaysInPeriod} ${daysWord} ${t('property.priceCalculator.occupiedShort').toLowerCase()}`)
         } else {
           toast.success(t('property.priceCalculator.toastAllFree'))
         }
@@ -310,6 +277,41 @@ const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates =
     } finally {
       setLoading(false)
     }
+  }
+
+  // Проверка занятости даты в выбранном периоде (для breakdown)
+  const isDateOccupiedInPeriod = (dateStr) => {
+    // Проверяем календарь
+    const inCalendar = blockedDates.some(blocked => {
+      const blockedStr = typeof blocked === 'string' 
+        ? (blocked.match(/^\d{4}-\d{2}-\d{2}/) ? blocked.substring(0, 10) : null)
+        : dateToLocalDateStr(blocked)
+      return blockedStr === dateStr
+    })
+    
+    if (inCalendar) {
+      return true
+    }
+    
+    // Проверяем бронирования
+    if (bookings && bookings.length > 0) {
+      const inBooking = bookings.some(booking => {
+        const checkInStr = typeof booking.check_in === 'string' 
+          ? booking.check_in.substring(0, 10) 
+          : (booking.check_in_date ? booking.check_in_date.substring(0, 10) : null)
+        const checkOutStr = typeof booking.check_out === 'string' 
+          ? booking.check_out.substring(0, 10) 
+          : (booking.check_out_date ? booking.check_out_date.substring(0, 10) : null)
+        
+        if (!checkInStr || !checkOutStr) return false
+        
+        return dateStr >= checkInStr && dateStr < checkOutStr
+      })
+      
+      return inBooking
+    }
+    
+    return false
   }
 
   // Сброс
@@ -351,7 +353,7 @@ const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates =
                 <motion.div 
                   initial={{ rotate: -180, scale: 0 }}
                   animate={{ rotate: 0, scale: 1 }}
-                  transition={{ type: "spring", stiffness: 200 }}
+                  transition={{ type: "spring", delay: 0.2 }}
                   className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm"
                 >
                   <HiCalculator className="w-7 h-7 text-white" />
@@ -360,271 +362,277 @@ const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates =
                   <h3 className="text-2xl font-bold text-white">
                     {t('property.priceCalculator.title')}
                   </h3>
-                  <p className="text-blue-100 text-sm">
+                  <p className="text-blue-100 text-sm mt-0.5">
                     {t('property.priceCalculator.subtitle')}
                   </p>
                 </div>
               </div>
-              <motion.button
-                whileHover={{ scale: 1.1, rotate: 90 }}
-                whileTap={{ scale: 0.9 }}
+              <button
                 onClick={onClose}
-                className="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-xl flex items-center justify-center 
-                         transition-colors backdrop-blur-sm"
+                className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center
+                         transition-all text-white hover:rotate-90 duration-300"
               >
-                <HiX className="w-6 h-6 text-white" />
-              </motion.button>
+                <HiX className="w-6 h-6" />
+              </button>
             </div>
           </div>
 
-          {/* Body */}
-          <div className="p-6 space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto">
-            {/* Date Selection */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Check In */}
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1 }}
-              >
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center space-x-2">
-                  <HiCalendar className="w-5 h-5 text-blue-500" />
-                  <span>{t('property.priceCalculator.checkIn')}</span>
+          {/* Content */}
+          <div className="modal-content p-6 max-h-[calc(100vh-200px)] overflow-y-auto">
+            {/* Date Pickers */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {/* Check-in */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  <HiCalendar className="inline w-4 h-4 mr-1.5" />
+                  {t('property.priceCalculator.checkIn')}
                 </label>
                 <DatePicker
                   selected={checkIn}
-                  onChange={setCheckIn}
+                  onChange={(date) => setCheckIn(date)}
+                  selectsStart
+                  startDate={checkIn}
+                  endDate={checkOut}
                   minDate={new Date()}
-                  filterDate={isDateAvailable}
-                  dateFormat="dd.MM.yyyy"
-                  className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 
-                           rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 
-                           text-gray-900 dark:text-white font-medium transition-all"
                   placeholderText={t('property.priceCalculator.selectCheckIn')}
-                  calendarClassName="!shadow-2xl !rounded-2xl"
-                  popperClassName="!z-[999]"
-                  popperPlacement="bottom-start"
-                  popperModifiers={[
-                    {
-                      name: 'offset',
-                      options: {
-                        offset: [0, 8],
-                      },
-                    },
-                    {
-                      name: 'preventOverflow',
-                      options: {
-                        rootBoundary: 'viewport',
-                        tether: false,
-                        altAxis: true,
-                      },
-                    },
-                  ]}
+                  dateFormat="dd/MM/yyyy"
+                  filterDate={isDateAvailable}
+                  dayClassName={(date) => {
+                    const dateStr = dateToLocalDateStr(date)
+                    if (freeFirstDays.has(dateStr)) {
+                      return 'first-free-date'
+                    }
+                    if (!isDateAvailable(date)) {
+                      return 'occupied-date'
+                    }
+                    return undefined
+                  }}
+                  highlightDates={Array.from(freeFirstDays).map(d => new Date(d))}
+                  className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl
+                           focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-200
+                           dark:bg-gray-700 dark:text-white transition-all"
                 />
-              </motion.div>
+              </div>
 
-              {/* Check Out */}
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-              >
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center space-x-2">
-                  <HiCalendar className="w-5 h-5 text-purple-500" />
-                  <span>{t('property.priceCalculator.checkOut')}</span>
+              {/* Check-out */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  <HiCalendar className="inline w-4 h-4 mr-1.5" />
+                  {t('property.priceCalculator.checkOut')}
                 </label>
                 <DatePicker
                   selected={checkOut}
-                  onChange={setCheckOut}
+                  onChange={(date) => setCheckOut(date)}
+                  selectsEnd
+                  startDate={checkIn}
+                  endDate={checkOut}
                   minDate={checkIn || new Date()}
-                  filterDate={isDateAvailable}
-                  dateFormat="dd.MM.yyyy"
-                  className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 
-                           rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 
-                           text-gray-900 dark:text-white font-medium transition-all"
                   placeholderText={t('property.priceCalculator.selectCheckOut')}
-                  calendarClassName="!shadow-2xl !rounded-2xl"
-                  popperClassName="!z-[999]"
-                  popperPlacement="top-start"
-                  popperModifiers={[
-                    {
-                      name: 'offset',
-                      options: {
-                        offset: [0, 8],
-                      },
-                    },
-                    {
-                      name: 'preventOverflow',
-                      options: {
-                        rootBoundary: 'viewport',
-                        tether: false,
-                        altAxis: true,
-                      },
-                    },
-                  ]}
+                  dateFormat="dd/MM/yyyy"
+                  filterDate={isDateAvailable}
+                  dayClassName={(date) => {
+                    const dateStr = dateToLocalDateStr(date)
+                    if (freeFirstDays.has(dateStr)) {
+                      return 'first-free-date'
+                    }
+                    if (!isDateAvailable(date)) {
+                      return 'occupied-date'
+                    }
+                    return undefined
+                  }}
+                  highlightDates={Array.from(freeFirstDays).map(d => new Date(d))}
+                  className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl
+                           focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-200
+                           dark:bg-gray-700 dark:text-white transition-all"
                 />
-              </motion.div>
+              </div>
             </div>
 
-            {/* Calculate Button */}
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleCalculate}
-              disabled={!checkIn || !checkOut || loading}
-              className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 
-                       disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed
-                       text-white font-bold py-4 px-6 rounded-xl transition-all
-                       flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl
-                       transform disabled:transform-none"
-            >
-              {loading ? (
-                <>
-                  <motion.div 
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                    className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
-                  />
-                  <span>{t('property.priceCalculator.calculating')}</span>
-                </>
-              ) : (
-                <>
-                  <HiSparkles className="w-5 h-5" />
-                  <span>{t('property.priceCalculator.calculate')}</span>
-                </>
+            {/* Action Buttons */}
+            <div className="flex items-center space-x-3 mb-6">
+              <button
+                onClick={handleCalculate}
+                disabled={!checkIn || !checkOut || loading}
+                className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700
+                         disabled:from-gray-300 disabled:to-gray-400 dark:disabled:from-gray-600 dark:disabled:to-gray-700
+                         text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-md hover:shadow-lg
+                         disabled:cursor-not-allowed disabled:shadow-none transform hover:scale-[1.02] active:scale-[0.98]
+                         flex items-center justify-center space-x-2"
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                    <span>{t('property.priceCalculator.calculating')}</span>
+                  </>
+                ) : (
+                  <>
+                    <HiCalculator className="w-5 h-5" />
+                    <span>{t('property.priceCalculator.calculate')}</span>
+                  </>
+                )}
+              </button>
+
+              {result && (
+                <button
+                  onClick={handleReset}
+                  className="px-6 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600
+                           text-gray-700 dark:text-gray-300 font-semibold rounded-xl transition-all"
+                >
+                  {t('property.priceCalculator.reset')}
+                </button>
               )}
-            </motion.button>
+            </div>
 
             {/* Results */}
-            <AnimatePresence>
-              {result && (
+            <AnimatePresence mode="wait">
+              {result && !loading && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.4 }}
                   className="space-y-4"
                 >
-                  {/* Предупреждение о занятых датах */}
-                  {result.hasOccupiedDays && (
+                  {/* НОВОЕ: Предупреждение о днях с нулевой ценой */}
+                  {result.hasZeroPriceDays && (
                     <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 
-                               p-5 rounded-xl border-2 border-orange-300 dark:border-orange-700"
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-200 dark:border-amber-800 rounded-xl p-4"
                     >
-                      <div className="flex items-start space-x-3 mb-4">
-                        <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <HiExclamationCircle className="w-6 h-6 text-white" />
+                      <div className="flex items-start space-x-3">
+                        <div className="flex-shrink-0">
+                          <HiExclamationCircle className="w-6 h-6 text-amber-600 dark:text-amber-400" />
                         </div>
                         <div className="flex-1">
-                          <h4 className="font-bold text-orange-900 dark:text-orange-100 mb-2">
-                            {t('property.priceCalculator.periodHasOccupiedDates')}
+                          <h4 className="text-sm font-semibold text-amber-900 dark:text-amber-200 mb-1">
+                            {t('property.priceCalculator.priceNotAvailable')}
                           </h4>
-                          <div className="grid grid-cols-2 gap-3 mb-3">
-                            <div className="bg-white/50 dark:bg-gray-800/50 p-3 rounded-lg">
-                              <div className="flex items-center space-x-2 mb-1">
-                                <HiCheckCircle className="w-4 h-4 text-green-600" />
-                                <span className="text-xs text-gray-600 dark:text-gray-400">{t('property.priceCalculator.free')}</span>
-                              </div>
-                              <span className="text-lg font-bold text-green-600 dark:text-green-400">
-                                {result.freeDaysCount} {getDaysWord(result.freeDaysCount)}
-                              </span>
-                            </div>
-                            <div className="bg-white/50 dark:bg-gray-800/50 p-3 rounded-lg">
-                              <div className="flex items-center space-x-2 mb-1">
-                                <HiBan className="w-4 h-4 text-red-600" />
-                                <span className="text-xs text-gray-600 dark:text-gray-400">{t('property.priceCalculator.occupied')}</span>
-                              </div>
-                              <span className="text-lg font-bold text-red-600 dark:text-red-400">
-                                {result.occupiedDaysCount} {getDaysWord(result.occupiedDaysCount)}
-                              </span>
-                            </div>
-                          </div>
-                          <p className="text-sm text-orange-800 dark:text-orange-200 mb-3">
-                            {t('property.priceCalculator.viewDetailsBelow')}
+                          <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed mb-3">
+                            {t('property.priceCalculator.priceNotAvailableDesc')}
                           </p>
+                          
+                          {/* Action Buttons */}
+                          <div className="flex items-center space-x-2">
+                            {onShowAlternatives && (
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => {
+                                  onShowAlternatives({
+                                    startDate: dateToLocalDateStr(checkIn),
+                                    endDate: dateToLocalDateStr(checkOut),
+                                    bedrooms: property?.bedrooms || 1
+                                  })
+                                  onClose()
+                                }}
+                                className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700
+                                         text-white text-xs font-semibold py-2 px-3 rounded-lg transition-all
+                                         flex items-center justify-center space-x-1.5 shadow-md hover:shadow-lg"
+                              >
+                                <HiSparkles className="w-4 h-4" />
+                                <span>{t('property.priceCalculator.viewAlternatives')}</span>
+                              </motion.button>
+                            )}
+                            
+                            <button
+                              onClick={onClose}
+                              className="text-xs font-medium text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 
+                                       bg-amber-100 dark:bg-amber-900/30 px-3 py-2 rounded-lg transition-colors"
+                            >
+                              {t('property.priceCalculator.contactUs')}
+                            </button>
+                          </div>
                         </div>
                       </div>
-
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => {
-                            if (onShowAlternatives) {
-                              // Сначала вызываем показ альтернатив
-                              onShowAlternatives({
-                                startDate: checkIn ? dateToLocalDateStr(checkIn) : null,
-                                endDate: checkOut ? dateToLocalDateStr(checkOut) : null,
-                                nightsCount: result.nights
-                              })
-
-                              // Плавно закрываем модальное окно
-                              onClose()
-
-                              // Увеличиваем задержку для гарантированного рендера
-                              setTimeout(() => {
-                                const scrollToAlternatives = () => {
-                                  const alternativesSection = document.getElementById('alternatives')
-                                  if (alternativesSection) {
-                                    const yOffset = -120 // Отступ сверху
-                                    const y = alternativesSection.getBoundingClientRect().top + window.pageYOffset + yOffset
-                                  
-                                    window.scrollTo({
-                                      top: y,
-                                      behavior: 'smooth'
-                                    })
-                                  }
-                                }
-
-                                // Пробуем скроллить несколько раз с интервалом
-                                scrollToAlternatives()
-                                setTimeout(scrollToAlternatives, 100)
-                                setTimeout(scrollToAlternatives, 300)
-                              }, 500)
-                            }
-                          }}
-                          className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700
-                                   text-white font-semibold py-3.5 px-6 rounded-xl transition-all
-                                   flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
-                        >
-                          <HiSparkles className="w-5 h-5" />
-                          <span>{t('property.priceCalculator.viewAlternatives')}</span>
-                        </motion.button>
                     </motion.div>
                   )}
 
-                    {/* Успешный статус если все дни свободны */}
-                    {!result.hasOccupiedDays && (
+                  {/* Availability Status Card */}
+                  {result.hasOccupiedDays && !result.hasZeroPriceDays && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 
+                               p-4 rounded-xl border-2 border-red-200 dark:border-red-800"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-2">
+                          <HiBan className="w-5 h-5 text-red-600 dark:text-red-400" />
+                          <h4 className="text-sm font-bold text-red-900 dark:text-red-200">
+                            {t('property.priceCalculator.periodHasOccupiedDates')}
+                          </h4>
+                        </div>
+                      </div>
+                      <p className="text-xs text-red-800 dark:text-red-300 mb-3">
+                        {t('property.priceCalculator.viewDetailsBelow')}
+                      </p>
+                      
+                      {/* Action Buttons */}
+                      <div className="flex items-center space-x-2">
+                        {onOpenBooking && (
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => {
+                              onOpenBooking(dateToLocalDateStr(checkIn), dateToLocalDateStr(checkOut))
+                              onClose()
+                            }}
+                            className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700
+                                     text-white text-xs font-semibold py-2 px-3 rounded-lg transition-all
+                                     flex items-center justify-center space-x-1.5 shadow-md hover:shadow-lg"
+                          >
+                            <HiCheckCircle className="w-4 h-4" />
+                            <span>{t('property.priceCalculator.bookNow')}</span>
+                          </motion.button>
+                        )}
+                        
+                        {onShowAlternatives && (
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => {
+                              onShowAlternatives({
+                                startDate: dateToLocalDateStr(checkIn),
+                                endDate: dateToLocalDateStr(checkOut),
+                                bedrooms: property?.bedrooms || 1
+                              })
+                              onClose()
+                            }}
+                            className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700
+                                     text-white text-xs font-semibold py-2 px-3 rounded-lg transition-all
+                                     flex items-center justify-center space-x-1.5 shadow-md hover:shadow-lg"
+                          >
+                            <HiSparkles className="w-4 h-4" />
+                            <span>{t('property.priceCalculator.viewAlternatives')}</span>
+                          </motion.button>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Booking Button (when all dates free) */}
+                  {!result.hasOccupiedDays && onOpenBooking && (
                       <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 
-                                 p-5 rounded-xl border-2 border-green-300 dark:border-green-700"
+                                 p-4 rounded-xl border-2 border-green-200 dark:border-green-800"
                       >
-                        <div className="flex items-center space-x-3 mb-4">
-                          <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <HiCheckCircle className="w-6 h-6 text-white" />
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-green-900 dark:text-green-100 mb-1">
-                              {t('property.priceCalculator.allDatesFree')}
-                            </h4>
-                            <p className="text-sm text-green-800 dark:text-green-200">
-                              {t('property.priceCalculator.propertyFullyAvailable')}
-                            </p>
-                          </div>
+                        <div className="flex items-center space-x-2 mb-2">
+                          <HiCheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                          <h4 className="text-sm font-bold text-green-900 dark:text-green-200">
+                            {t('property.priceCalculator.propertyFullyAvailable')}
+                          </h4>
                         </div>
-
                         <motion.button
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                           onClick={() => {
-                            onOpenBooking(checkIn, checkOut)
+                            onOpenBooking(dateToLocalDateStr(checkIn), dateToLocalDateStr(checkOut))
                             onClose()
                           }}
-                          className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700
-                                   text-white font-semibold py-3.5 px-6 rounded-xl transition-all
+                          className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700
+                                   text-white font-semibold py-3 px-4 rounded-xl transition-all
                                    flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
                         >
                           <HiCheckCircle className="w-5 h-5" />
@@ -723,19 +731,25 @@ const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates =
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: index * 0.03 }}
                             className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all
-                              ${day.isOccupied
-                                ? 'bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border-red-300 dark:border-red-700'
-                                : 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-300 dark:border-green-700'
+                              ${day.isZeroPrice
+                                ? 'bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-amber-300 dark:border-amber-700'
+                                : day.isOccupied
+                                  ? 'bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border-red-300 dark:border-red-700'
+                                  : 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-300 dark:border-green-700'
                               }`}
                           >
                             <div className="flex items-center space-x-3">
                               <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0
-                                ${day.isOccupied
-                                  ? 'bg-red-500'
-                                  : 'bg-green-500'
+                                ${day.isZeroPrice
+                                  ? 'bg-amber-500'
+                                  : day.isOccupied
+                                    ? 'bg-red-500'
+                                    : 'bg-green-500'
                                 }`}
                               >
-                                {day.isOccupied ? (
+                                {day.isZeroPrice ? (
+                                  <HiExclamationCircle className="w-5 h-5 text-white" />
+                                ) : day.isOccupied ? (
                                   <HiBan className="w-5 h-5 text-white" />
                                 ) : (
                                   <HiCheckCircle className="w-5 h-5 text-white" />
@@ -758,11 +772,16 @@ const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates =
                             </div>
                             <div className="text-right">
                               <p className={`text-lg font-bold ${
-                                day.isOccupied
-                                  ? 'text-red-600 dark:text-red-400'
-                                  : 'text-green-600 dark:text-green-400'
+                                day.isZeroPrice
+                                  ? 'text-amber-600 dark:text-amber-400'
+                                  : day.isOccupied
+                                    ? 'text-red-600 dark:text-red-400'
+                                    : 'text-green-600 dark:text-green-400'
                               }`}>
-                                ฿{day.price.toLocaleString()}
+                                {day.isZeroPrice 
+                                  ? t('property.pricing.onRequest')
+                                  : `฿${day.price.toLocaleString()}`
+                                }
                               </p>
                             </div>
                           </motion.div>

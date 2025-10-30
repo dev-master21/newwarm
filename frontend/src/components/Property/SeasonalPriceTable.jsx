@@ -42,6 +42,15 @@ const SeasonalPriceTable = ({ seasonalPricing = [] }) => {
     return `${dayNum} ${monthName}`
   }
 
+  // НОВАЯ ФУНКЦИЯ: Форматирование цены с учетом нуля
+  const formatPrice = (price) => {
+    const priceValue = parseFloat(price)
+    if (priceValue === 0 || isNaN(priceValue)) {
+      return t('property.pricing.onRequest')
+    }
+    return `฿${Math.round(priceValue).toLocaleString()}`
+  }
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5">
       <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center space-x-2">
@@ -84,19 +93,19 @@ const SeasonalPriceTable = ({ seasonalPricing = [] }) => {
                 </td>
                 <td className="py-3 px-3">
                   <div className="flex items-center space-x-1.5 text-sm text-gray-700 dark:text-gray-300">
-                    <HiCalendar className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                    <span className="whitespace-nowrap">{formatDate(period.start_date_recurring)} - {formatDate(period.end_date_recurring)}</span>
+                    <HiCalendar className="w-4 h-4 text-gray-400" />
+                    <span>{formatDate(period.start_date_recurring)} - {formatDate(period.end_date_recurring)}</span>
                   </div>
                 </td>
                 <td className="py-3 px-3 text-center">
-                  <div className="inline-flex items-center space-x-1 text-sm text-gray-700 dark:text-gray-300">
-                    <HiMoon className="w-3.5 h-3.5 text-gray-400" />
+                  <div className="flex items-center justify-center space-x-1 text-sm text-gray-600 dark:text-gray-400">
+                    <HiMoon className="w-4 h-4" />
                     <span>{period.minimum_nights || 1}</span>
                   </div>
                 </td>
                 <td className="py-3 px-3 text-right">
-                  <span className="text-base font-bold text-gray-900 dark:text-white">
-                    ฿{Math.round(parseFloat(period.price_per_night)).toLocaleString()}
+                  <span className="text-lg font-bold text-gray-900 dark:text-white">
+                    {formatPrice(period.price_per_night)}
                   </span>
                 </td>
               </motion.tr>
@@ -115,13 +124,13 @@ const SeasonalPriceTable = ({ seasonalPricing = [] }) => {
             transition={{ delay: index * 0.05 }}
             className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 space-y-2"
           >
-            {/* Season Type & Price */}
+            {/* Season & Price */}
             <div className="flex items-center justify-between">
               <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold ${getSeasonColor(period.season_type)}`}>
                 {getSeasonName(period.season_type)}
               </span>
               <span className="text-lg font-bold text-gray-900 dark:text-white">
-                ฿{Math.round(parseFloat(period.price_per_night)).toLocaleString()}
+                {formatPrice(period.price_per_night)}
               </span>
             </div>
 
