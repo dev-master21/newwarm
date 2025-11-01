@@ -28,4 +28,6 @@ router.post('/:propertyId/find-available-slots', propertyController.findAvailabl
 router.post('/:propertyId/check-period', propertyController.checkPeriodAvailability.bind(propertyController));
 router.post('/:propertyId/find-alternative-properties', propertyController.findAlternativeProperties.bind(propertyController));
 
+router.get('/complex/:complexName', propertyController.getComplexProperties.bind(propertyController))
+
 export default router;

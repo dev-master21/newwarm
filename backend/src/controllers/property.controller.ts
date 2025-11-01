@@ -8,6 +8,74 @@ import path from 'path';
 import { thumbnailService } from '../services/thumbnail.service'
 
 class PropertyController {
+    /**
+   * Получение объектов из одного комплекса
+   */
+  async getComplexProperties(req: AuthRequest, res: Response) {
+    try {
+      const { complexName } = req.params;
+      const propertyId = req.query.excludeId; // ID объекта, который нужно исключить
+
+      console.log(`🏘️ Получение объектов комплекса: ${complexName}`);
+
+      const query = `
+        SELECT 
+          p.id,
+          p.property_number,
+          p.bedrooms,
+          p.bathrooms,
+          p.indoor_area,
+          p.region,
+          p.address,
+          p.latitude,
+          p.longitude,
+          pt.property_name as name,
+          (
+            SELECT MIN(price_per_night) 
+            FROM property_pricing 
+            WHERE property_id = p.id AND price_per_night > 0
+          ) as min_price,
+          (
+            SELECT photo_url 
+            FROM property_photos 
+            WHERE property_id = p.id 
+            ORDER BY is_primary DESC, sort_order ASC 
+            LIMIT 1
+          ) as primary_photo
+        FROM properties p
+        LEFT JOIN property_translations pt ON p.id = pt.property_id AND pt.language_code = ?
+        WHERE p.complex_name = ?
+          AND p.status = 'published'
+          AND p.deleted_at IS NULL
+          ${propertyId ? 'AND p.id != ?' : ''}
+        ORDER BY p.property_number ASC
+      `;
+
+      const params = [
+        req.query.language || 'ru',
+        complexName,
+        ...(propertyId ? [propertyId] : [])
+      ];
+
+      const properties: any = await db.query(query, params);
+
+      console.log(`✅ Найдено ${properties.length} объектов в комплексе`);
+
+      res.json({
+        success: true,
+        data: properties.map((p: any) => ({
+          ...p,
+          photos: p.primary_photo ? [p.primary_photo] : []
+        }))
+      });
+    } catch (error) {
+      console.error('❌ Ошибка получения объектов комплекса:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get complex properties'
+      });
+    }
+  }
   /**
    * Создание нового объекта недвижимости
    */
@@ -296,7 +364,7 @@ class PropertyController {
     }
   }
 
-    /**
+/**
      * Получение объектов для карты (публичный endpoint)
      */
     async getPropertiesForMap(req: AuthRequest, res: Response) {
@@ -316,6 +384,7 @@ class PropertyController {
             p.bedrooms,
             p.bathrooms,
             p.indoor_area,
+            p.complex_name,
             pt.property_name as name,
             (SELECT MIN(price_per_night) FROM property_pricing WHERE property_id = p.id AND price_per_night > 0) as price_per_night,
             (
@@ -338,11 +407,42 @@ class PropertyController {
     
         const properties: any = await db.query(query);
     
-        const processedProperties = properties.map((property: any) => {
+        // Обрабатываем каждый объект
+        const processedProperties = await Promise.all(properties.map(async (property: any) => {
           let photos: string[] = [];
         
           if (property.photos_concat) {
             photos = property.photos_concat.split('|||').filter((p: string) => p);
+          }
+          
+          // Получаем данные комплекса если объект в комплексе
+          let complex_count = 1;
+          let complex_min_price = null;
+          
+          if (property.complex_name) {
+            // Количество объектов в комплексе
+            const complexCountResult: any = await db.query(
+              `SELECT COUNT(*) as count
+               FROM properties
+               WHERE complex_name = ?
+                 AND status = 'published'
+                 AND deleted_at IS NULL`,
+              [property.complex_name]
+            );
+            complex_count = complexCountResult[0]?.count || 1;
+            
+            // Минимальная цена комплекса
+            const complexPricingResult: any = await db.query(
+              `SELECT MIN(pricing.price_per_night) as min_price
+               FROM properties p
+               LEFT JOIN property_pricing pricing ON p.id = pricing.property_id
+               WHERE p.complex_name = ?
+                 AND p.status = 'published'
+                 AND p.deleted_at IS NULL
+                 AND pricing.price_per_night > 0`,
+              [property.complex_name]
+            );
+            complex_min_price = complexPricingResult[0]?.min_price || null;
           }
       
           return {
@@ -360,9 +460,12 @@ class PropertyController {
             indoor_area: property.indoor_area,
             region: property.region,
             address: property.address,
-            photos: photos
+            photos: photos,
+            complex_name: property.complex_name,
+            complex_count: complex_count,
+            complex_min_price: complex_min_price
           };
-        });
+        }));
     
         console.log(`✅ Найдено ${processedProperties.length} объектов для карты`);
     
@@ -1308,167 +1411,185 @@ class PropertyController {
       });
     }
   }
-  /**
-   * ПУБЛИЧНЫЙ: Получение детальной информации об объекте для клиента
-   */
-  async getPublicPropertyDetails(req: Request, res: Response) {
-    try {
-      const { propertyId } = req.params;
-      const { lang = 'ru' } = req.query;
+/**
+ * ПУБЛИЧНЫЙ: Получение детальной информации об объекте для клиента
+ */
+async getPublicPropertyDetails(req: Request, res: Response) {
+  try {
+    const { propertyId } = req.params;
+    const { lang = 'ru' } = req.query;
 
-      console.log(`🔍 Публичный запрос объекта #${propertyId}, язык: ${lang}`);
+    console.log(`🔍 Публичный запрос объекта #${propertyId}, язык: ${lang}`);
 
-      // Получаем основную информацию об объекте
-      const properties: any = await db.query(
-        `SELECT p.* FROM properties p
-         WHERE p.id = ? AND p.status = 'published' AND p.deleted_at IS NULL`,
-        [propertyId]
-      );
+    // Получаем основную информацию об объекте - ДОБАВЛЕНО complex_name
+    const properties: any = await db.query(
+      `SELECT p.* FROM properties p
+       WHERE p.id = ? AND p.status = 'published' AND p.deleted_at IS NULL`,
+      [propertyId]
+    );
 
-      if (!properties || properties.length === 0) {
-        return res.status(404).json({
-          success: false,
-          message: 'Property not found'
-        });
-      }
-
-      const property = properties[0];
-
-      // Получаем перевод для указанного языка (или русский по умолчанию)
-      const translations: any = await db.query(
-        'SELECT property_name, description FROM property_translations WHERE property_id = ? AND language_code = ?',
-        [propertyId, lang]
-      );
-
-      if (translations.length > 0) {
-        property.name = translations[0].property_name;
-        property.description = translations[0].description;
-      }
-
-      // Получаем все переводы (для переключения языка)
-      const allTranslations: any = await db.query(
-        'SELECT language_code, property_name, description FROM property_translations WHERE property_id = ?',
-        [propertyId]
-      );
-
-      property.translations = {};
-      for (const trans of allTranslations) {
-        property.translations[trans.language_code] = {
-          name: trans.property_name,
-          description: trans.description
-        };
-      }
-
-      // Получаем особенности
-      const features: any = await db.query(
-        'SELECT feature_type, feature_value FROM property_features WHERE property_id = ?',
-        [propertyId]
-      );
-
-      property.features = {
-        property: [],
-        outdoor: [],
-        rental: [],
-        location: [],
-        view: []
-      };
-
-      for (const feature of features) {
-        const type = feature.feature_type;
-        if (property.features[type]) {
-          property.features[type].push(feature.feature_value);
-        }
-      }
-
-      // Получаем фотографии с категориями
-      const photos: any = await db.query(
-        `SELECT 
-          pp.id, 
-          pp.photo_url, 
-          pp.category, 
-          pp.sort_order,
-          pp.is_primary
-         FROM property_photos pp
-         WHERE pp.property_id = ?
-         ORDER BY pp.is_primary DESC, pp.sort_order ASC`,
-        [propertyId]
-      );
-
-      // Группируем фотографии по категориям
-      property.photos = photos;
-      property.photosByCategory = {};
-      
-      for (const photo of photos) {
-        const category = photo.category || 'general';
-        if (!property.photosByCategory[category]) {
-          property.photosByCategory[category] = [];
-        }
-        property.photosByCategory[category].push(photo);
-      }
-
-      // Получаем сезонные цены
-      const pricing: any = await db.query(
-        `SELECT 
-          season_type,
-          start_date_recurring,
-          end_date_recurring,
-          price_per_night,
-          minimum_nights
-         FROM property_pricing 
-         WHERE property_id = ?
-         ORDER BY id ASC`,
-        [propertyId]
-      );
-
-      property.seasonalPricing = pricing;
-
-      // Получаем занятые даты из календаря
-      const calendarBlocks: any = await db.query(
-        `SELECT DATE_FORMAT(blocked_date, '%Y-%m-%d') as blocked_date, reason
-         FROM property_calendar
-         WHERE property_id = ?
-         AND blocked_date >= CURDATE()
-         ORDER BY blocked_date`,
-        [propertyId]
-      );
-      
-      property.blockedDates = calendarBlocks.map((block: any) => ({
-        date: block.blocked_date,  // Теперь это строка YYYY-MM-DD
-        reason: block.reason
-      }));
-
-      // Получаем бронирования
-      const bookings: any = await db.query(
-        `SELECT check_in_date, check_out_date, status
-         FROM property_bookings
-         WHERE property_id = ? AND status != 'cancelled'
-         AND check_out_date >= CURDATE()
-         ORDER BY check_in_date`,
-        [propertyId]
-      );
-
-      property.bookings = bookings;
-
-      // Увеличиваем счетчик просмотров
-      await db.query(
-        'UPDATE properties SET views_count = views_count + 1 WHERE id = ?',
-        [propertyId]
-      );
-
-      console.log(`✅ Объект #${propertyId} успешно загружен (публичный)`);
-
-      res.json({
-        success: true,
-        data: { property }
-      });
-    } catch (error) {
-      console.error('❌ Get public property error:', error);
-      res.status(500).json({
+    if (!properties || properties.length === 0) {
+      return res.status(404).json({
         success: false,
-        message: 'Failed to get property'
+        message: 'Property not found'
       });
     }
+
+    const property = properties[0];
+
+    // Получаем перевод для указанного языка (или русский по умолчанию)
+    const translations: any = await db.query(
+      'SELECT property_name, description FROM property_translations WHERE property_id = ? AND language_code = ?',
+      [propertyId, lang]
+    );
+
+    if (translations.length > 0) {
+      property.name = translations[0].property_name;
+      property.description = translations[0].description;
+    }
+
+    // Получаем все переводы (для переключения языка)
+    const allTranslations: any = await db.query(
+      'SELECT language_code, property_name, description FROM property_translations WHERE property_id = ?',
+      [propertyId]
+    );
+
+    property.translations = {};
+    for (const trans of allTranslations) {
+      property.translations[trans.language_code] = {
+        name: trans.property_name,
+        description: trans.description
+      };
+    }
+
+    // Получаем особенности
+    const features: any = await db.query(
+      'SELECT feature_type, feature_value FROM property_features WHERE property_id = ?',
+      [propertyId]
+    );
+
+    property.features = {
+      property: [],
+      outdoor: [],
+      rental: [],
+      location: [],
+      view: []
+    };
+
+    for (const feature of features) {
+      const type = feature.feature_type;
+      if (property.features[type]) {
+        property.features[type].push(feature.feature_value);
+      }
+    }
+
+    // Получаем фотографии с категориями
+    const photos: any = await db.query(
+      `SELECT 
+        pp.id, 
+        pp.photo_url, 
+        pp.category, 
+        pp.sort_order,
+        pp.is_primary
+       FROM property_photos pp
+       WHERE pp.property_id = ?
+       ORDER BY pp.is_primary DESC, pp.sort_order ASC`,
+      [propertyId]
+    );
+
+    // Группируем фотографии по категориям
+    property.photos = photos;
+    property.photosByCategory = {};
+    
+    for (const photo of photos) {
+      const category = photo.category || 'general';
+      if (!property.photosByCategory[category]) {
+        property.photosByCategory[category] = [];
+      }
+      property.photosByCategory[category].push(photo);
+    }
+
+    // Получаем сезонные цены
+    const pricing: any = await db.query(
+      `SELECT 
+        season_type,
+        start_date_recurring,
+        end_date_recurring,
+        price_per_night,
+        minimum_nights
+       FROM property_pricing 
+       WHERE property_id = ?
+       ORDER BY id ASC`,
+      [propertyId]
+    );
+
+    property.seasonalPricing = pricing;
+
+    // Получаем занятые даты из календаря
+    const calendarBlocks: any = await db.query(
+      `SELECT DATE_FORMAT(blocked_date, '%Y-%m-%d') as blocked_date, reason
+       FROM property_calendar
+       WHERE property_id = ?
+       AND blocked_date >= CURDATE()
+       ORDER BY blocked_date`,
+      [propertyId]
+    );
+    
+    property.blockedDates = calendarBlocks.map((block: any) => ({
+      date: block.blocked_date,
+      reason: block.reason
+    }));
+
+    // Получаем бронирования
+    const bookings: any = await db.query(
+      `SELECT check_in_date, check_out_date, status
+       FROM property_bookings
+       WHERE property_id = ? AND status != 'cancelled'
+       AND check_out_date >= CURDATE()
+       ORDER BY check_in_date`,
+      [propertyId]
+    );
+
+    property.bookings = bookings;
+
+    // ========= НОВЫЙ КОД ДЛЯ КОМПЛЕКСОВ - НАЧАЛО =========
+    // Если объект входит в комплекс - получаем количество объектов в комплексе
+    if (property.complex_name) {
+      console.log(`🏘️ Объект входит в комплекс: ${property.complex_name}`);
+      
+      const complexCount: any = await db.query(
+        `SELECT COUNT(*) as count
+         FROM properties
+         WHERE complex_name = ?
+           AND status = 'published'
+           AND deleted_at IS NULL`,
+        [property.complex_name]
+      );
+      property.complex_properties_count = complexCount[0]?.count || 1;
+      console.log(`🏘️ Объектов в комплексе: ${property.complex_properties_count}`);
+    }
+    // ========= НОВЫЙ КОД ДЛЯ КОМПЛЕКСОВ - КОНЕЦ =========
+
+    // Увеличиваем счетчик просмотров
+    await db.query(
+      'UPDATE properties SET views_count = views_count + 1 WHERE id = ?',
+      [propertyId]
+    );
+
+    console.log(`✅ Объект #${propertyId} успешно загружен (публичный)`);
+
+    res.json({
+      success: true,
+      data: { property }
+    });
+  } catch (error) {
+    console.error('❌ Get public property error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get property'
+    });
   }
+}
 
 /**
  * Расчет стоимости проживания за период
@@ -2441,6 +2562,10 @@ async getVillasForPage(req: Request, res: Response) {
     console.log('🏠 Загрузка вилл для страницы');
     console.log('Параметры:', { checkIn, checkOut, bedrooms, name, page, limit });
 
+    // Проверяем есть ли параметры поиска
+    const hasSearchParams = !!(checkIn || checkOut || bedrooms || name);
+    console.log('🔍 Режим поиска:', hasSearchParams ? 'ДА' : 'НЕТ');
+
     const currentPage = parseInt(page as string);
     const itemsPerPage = parseInt(limit as string);
     const offset = (currentPage - 1) * itemsPerPage;
@@ -2450,6 +2575,7 @@ async getVillasForPage(req: Request, res: Response) {
       SELECT 
         p.id,
         p.property_number,
+        p.complex_name,
         p.bedrooms,
         p.bathrooms,
         p.indoor_area,
@@ -2498,27 +2624,14 @@ async getVillasForPage(req: Request, res: Response) {
       params.push(checkIn, checkOut, checkIn, checkIn);
     }
 
-    // Подсчет общего количества - используем те же params
-    const countQuery = `
-      SELECT COUNT(*) as total 
-      FROM properties p
-      LEFT JOIN property_translations pt ON p.id = pt.property_id AND pt.language_code = 'ru'
-      WHERE p.status = 'published' AND p.deleted_at IS NULL
-      ${bedrooms ? 'AND p.bedrooms >= ?' : ''}
-      ${name ? 'AND (pt.property_name LIKE ? OR p.property_number LIKE ?)' : ''}
-      ${checkIn && checkOut ? `AND p.id NOT IN (
-        SELECT DISTINCT property_id FROM property_calendar WHERE blocked_date >= ? AND blocked_date < ?
-      ) AND p.id NOT IN (
-        SELECT DISTINCT property_id FROM property_bookings WHERE status != 'cancelled'
-        AND ((check_in_date >= ? AND check_in_date < ?) OR (? >= check_in_date AND ? < check_out_date))
-      )` : ''}
-    `;
-    
-    const countResult: any = await db.query(countQuery, params);
-    const total = countResult[0].total;
+    // Сортировка
+    query += ` ORDER BY p.created_at DESC`;
 
-    // ВАЖНО: Используем прямую подстановку для LIMIT и OFFSET, как в getAdminProperties
-    query += ` ORDER BY p.created_at DESC LIMIT ${itemsPerPage} OFFSET ${offset}`;
+    // ВАЖНО: Если есть поиск - применяем LIMIT сразу в SQL
+    // Если нет поиска - получаем все объекты для группировки
+    if (hasSearchParams) {
+      query += ` LIMIT ${itemsPerPage} OFFSET ${offset}`;
+    }
 
     const properties: any = await db.query(query, params);
           
@@ -2532,11 +2645,12 @@ async getVillasForPage(req: Request, res: Response) {
       const photos: any = await db.query(
         `SELECT photo_url FROM property_photos 
          WHERE property_id = ? 
-         ORDER BY sort_order ASC`,
+         ORDER BY is_primary DESC, sort_order ASC`,
         [property.id]
       );
-      property.photos = photos.map((p: any) => p.photo_url);
-      console.log(`📸 Фотографий: ${property.photos.length}`);
+      property.photos = photos
+        .map((p: any) => p.photo_url)
+        .filter((url: string) => url && url.trim() !== '');
     
       // Минимальная цена из всех сезонов
       const pricing: any = await db.query(
@@ -2547,6 +2661,39 @@ async getVillasForPage(req: Request, res: Response) {
       );
       property.min_price = pricing[0]?.min_price || null;
       console.log(`💰 Минимальная цена: ${property.min_price}`);
+
+      // Если объект входит в комплекс - получаем данные комплекса
+      if (property.complex_name) {
+        console.log(`🏘️ Объект входит в комплекс: ${property.complex_name}`);
+        
+        // Получаем минимальную цену среди всех объектов комплекса
+        const complexPricing: any = await db.query(
+          `SELECT MIN(pricing.price_per_night) as complex_min_price
+           FROM properties p
+           LEFT JOIN property_pricing pricing ON p.id = pricing.property_id
+           WHERE p.complex_name = ?
+             AND p.status = 'published'
+             AND p.deleted_at IS NULL
+             AND pricing.price_per_night > 0`,
+          [property.complex_name]
+        );
+        property.complex_min_price = complexPricing[0]?.complex_min_price || null;
+        console.log(`💰 Минимальная цена комплекса: ${property.complex_min_price}`);
+        
+        // Получаем количество объектов в комплексе
+        const complexCount: any = await db.query(
+          `SELECT COUNT(*) as count
+           FROM properties
+           WHERE complex_name = ?
+             AND status = 'published'
+             AND deleted_at IS NULL`,
+          [property.complex_name]
+        );
+        property.complex_count = complexCount[0]?.count || 1;
+        console.log(`🏘️ Объектов в комплексе: ${property.complex_count}`);
+      } else {
+        property.complex_count = 1;
+      }
     
       // Координаты для карты (если есть)
       if (property.latitude && property.longitude) {
@@ -2584,16 +2731,71 @@ async getVillasForPage(req: Request, res: Response) {
       delete property.created_at;
     }
 
-    console.log(`✅ Загружено объектов: ${properties.length} из ${total}`);
+    let finalProperties = properties;
+    let totalForPagination = properties.length;
+
+    // ========= ГРУППИРОВКА ПО КОМПЛЕКСАМ (только без поиска) =========
+    if (!hasSearchParams) {
+      console.log('🎯 Режим без поиска - группируем по комплексам');
+      
+      const complexMap = new Map();
+      const standaloneProperties = [];
+
+      for (const property of properties) {
+        if (property.complex_name) {
+          // Объект в комплексе
+          if (!complexMap.has(property.complex_name)) {
+            // Первый объект из комплекса - добавляем
+            complexMap.set(property.complex_name, property);
+            console.log(`➕ Добавлен первый объект из комплекса "${property.complex_name}": #${property.id}`);
+          } else {
+            // Уже есть объект из этого комплекса - сравниваем цены
+            const existing = complexMap.get(property.complex_name);
+            const existingPrice = existing.min_price || Infinity;
+            const currentPrice = property.min_price || Infinity;
+            
+            console.log(`🔄 Сравнение в комплексе "${property.complex_name}": существующий #${existing.id} (₿${existingPrice}) vs текущий #${property.id} (₿${currentPrice})`);
+            
+            // Если текущий объект дешевле - заменяем
+            if (currentPrice < existingPrice) {
+              complexMap.set(property.complex_name, property);
+              console.log(`✅ Заменен на более дешевый объект #${property.id}`);
+            } else {
+              console.log(`⏭️ Оставляем существующий объект #${existing.id}`);
+            }
+          }
+        } else {
+          // Отдельный объект (не в комплексе) - всегда добавляем
+          standaloneProperties.push(property);
+          console.log(`➕ Добавлен отдельный объект #${property.id}`);
+        }
+      }
+
+      // Собираем финальный массив: объекты из комплексов + отдельные объекты
+      const groupedProperties = [...complexMap.values(), ...standaloneProperties];
+      
+      console.log(`📊 После группировки: ${groupedProperties.length} объектов (было ${properties.length})`);
+
+      // Применяем пагинацию ПОСЛЕ группировки
+      totalForPagination = groupedProperties.length;
+      finalProperties = groupedProperties.slice(offset, offset + itemsPerPage);
+      
+      console.log(`📄 После пагинации: показываем объекты с ${offset} по ${offset + itemsPerPage}`);
+    } else {
+      console.log('🔍 Режим поиска - показываем все подходящие объекты (пагинация уже в SQL)');
+    }
+    // ========= КОНЕЦ ЛОГИКИ ГРУППИРОВКИ =========
+
+    console.log(`✅ Финальное количество объектов: ${finalProperties.length}`);
 
     res.json({
       success: true,
-      data: properties,
+      data: finalProperties,
       pagination: {
         page: currentPage,
         limit: itemsPerPage,
-        total,
-        pages: Math.ceil(total / itemsPerPage)
+        total: totalForPagination,
+        pages: Math.ceil(totalForPagination / itemsPerPage)
       }
     });
   } catch (error) {
