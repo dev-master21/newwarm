@@ -42,8 +42,8 @@ export const config = {
   
   upload: {
     dir: process.env.UPLOAD_DIR || 'uploads',
-    maxSize: parseInt(process.env.MAX_FILE_SIZE || '10485760', 10),
-    maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760', 10),
+    maxSize: parseInt(process.env.MAX_FILE_SIZE || '104857600', 10), // 100MB
+    maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '104857600', 10), // 100MB
   },
   
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',

@@ -900,7 +900,6 @@ class PropertyController {
         });
       }
 
-      // ИСПРАВЛЕНО: убрана деструктуризация
       const property: any = await db.query(
         'SELECT id FROM properties WHERE id = ? AND created_by = ? AND deleted_at IS NULL',
         [propertyId, req.admin?.id]
@@ -910,11 +909,25 @@ class PropertyController {
         for (const file of files) {
           await fs.remove(file.path);
         }
-        
+
         return res.status(404).json({
           success: false,
           message: 'Property not found'
         });
+      }
+
+      // НОВОЕ: Обрабатываем изображения параллельно (сжатие + thumbnails)
+      console.log(`🔄 Processing ${files.length} images...`);
+      const filePaths = files.map(file => file.path);
+
+      // Импортируем сервис обработки изображений
+      const { imageProcessorService } = await import('../services/imageProcessor.service');
+
+      try {
+        await imageProcessorService.processMultipleImages(filePaths);
+      } catch (processError) {
+        console.error('⚠️  Error processing some images:', processError);
+        // Продолжаем даже если обработка не удалась
       }
 
       const maxOrder: any = await db.query(
@@ -927,7 +940,7 @@ class PropertyController {
       const photoUrls = [];
       for (const file of files) {
         const photoUrl = `/uploads/properties/photos/${file.filename}`;
-        
+
         await db.query(
           `INSERT INTO property_photos (property_id, photo_url, category, sort_order)
            VALUES (?, ?, ?, ?)`,
@@ -941,10 +954,10 @@ class PropertyController {
           sort_order: sortOrder - 1
         });
 
-        console.log(`✅ Фото загружено: ${file.filename}`);
+        console.log(`✅ Фото загружено и обработано: ${file.filename}`);
       }
 
-      console.log(`✅ Все ${files.length} фотографий успешно загружены`);
+      console.log(`✅ Все ${files.length} фотографий успешно загружены и обработаны`);
       res.json({
         success: true,
         data: {
@@ -967,22 +980,21 @@ class PropertyController {
     try {
       const { propertyId } = req.params;
       const file = req.file;
-
+    
       console.log(`📐 Загрузка планировки для объекта #${propertyId}`);
-
+    
       if (!file) {
         return res.status(400).json({
           success: false,
           message: 'No file uploaded'
         });
       }
-
-      // ИСПРАВЛЕНО: убрана деструктуризация
+    
       const property: any = await db.query(
         'SELECT floor_plan_url FROM properties WHERE id = ? AND created_by = ? AND deleted_at IS NULL',
         [propertyId, req.admin?.id]
       );
-
+    
       if (!property || property.length === 0) {
         await fs.remove(file.path);
         
@@ -991,21 +1003,21 @@ class PropertyController {
           message: 'Property not found'
         });
       }
-
+    
       if (property[0].floor_plan_url) {
         const oldPath = path.join(__dirname, '../../', property[0].floor_plan_url);
         await fs.remove(oldPath).catch(() => {});
       }
-
+    
       const floorPlanUrl = `/uploads/properties/floor-plans/${file.filename}`;
       
       await db.query(
         'UPDATE properties SET floor_plan_url = ? WHERE id = ?',
         [floorPlanUrl, propertyId]
       );
-
+    
       console.log(`✅ Планировка загружена: ${file.filename}`);
-
+    
       res.json({
         success: true,
         data: {

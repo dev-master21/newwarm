@@ -80,7 +80,26 @@ class VRPanoramaController {
           message: 'All 6 images are required (front, back, left, right, top, bottom)'
         })
       }
-
+      // НОВОЕ: Обрабатываем все 6 изображений панорамы
+      console.log(`🔄 Processing 6 VR panorama images...`);
+      const allFiles = [
+        ...files.front,
+        ...files.back,
+        ...files.left,
+        ...files.right,
+        ...files.top,
+        ...files.bottom
+      ];
+      const filePaths = allFiles.map(file => file.path);
+      
+      const { imageProcessorService } = await import('../services/imageProcessor.service');
+      
+      try {
+        await imageProcessorService.processMultipleImages(filePaths);
+      } catch (processError) {
+        console.error('⚠️  Error processing VR panorama images:', processError);
+        // Продолжаем даже если обработка не удалась
+      }
       // Получаем следующий sort_order
       const sortOrderResult: any = await db.query(
         'SELECT COALESCE(MAX(sort_order), 0) + 1 as next_order FROM property_vr_panoramas WHERE property_id = ?',
