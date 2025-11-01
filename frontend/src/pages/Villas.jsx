@@ -10,7 +10,8 @@ import {
   HiHeart,
   HiX,
   HiCalendar,
-  HiMoon
+  HiMoon,
+  HiHome
 } from 'react-icons/hi'
 import { IoBedOutline, IoExpand } from 'react-icons/io5'
 import { MdBathtub } from 'react-icons/md'
@@ -167,6 +168,10 @@ const Villas = () => {
                   property={property} 
                   index={index}
                   nights={nights}
+                  checkIn={checkIn}
+                  checkOut={checkOut}
+                  name={name}
+                  bedrooms={bedrooms}
                 />
               ))}
             </div>
@@ -183,7 +188,7 @@ const Villas = () => {
 }
 
 // PropertyCard Component (идентичный FeaturedVillas)
-const PropertyCard = memo(({ property, index, nights }) => {
+const PropertyCard = memo(({ property, index, nights, checkIn, checkOut, name, bedrooms }) => {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0)
@@ -379,7 +384,24 @@ const PropertyCard = memo(({ property, index, nights }) => {
             </div>
           </div>
         )}
-
+        {/* Complex Badge - показываем только БЕЗ поиска */}
+        {property.complex_name && 
+         property.complex_count > 1 && 
+         !checkIn && 
+         !checkOut && 
+         !name && 
+         !bedrooms && (
+          <div className="absolute bottom-3 right-3 z-20">
+            <span className="bg-purple-600 text-white px-3 py-1.5 rounded-full text-xs font-bold 
+                         shadow-lg flex items-center space-x-1.5">
+              <HiHome className="w-3.5 h-3.5" />
+              <span>{t('property.complex.badge')}</span>
+              <span className="bg-white/30 px-2 py-0.5 rounded-full">
+                {property.complex_count}
+              </span>
+            </span>
+          </div>
+        )}
         {/* Shortlist Button */}
         <button
           onClick={handleShortlistToggle}
@@ -495,25 +517,33 @@ const PropertyCard = memo(({ property, index, nights }) => {
               </div>
             ) : (
               // Обычное отображение цены БЕЗ периода
-            <div className="flex items-baseline justify-between">
+              <div className="flex items-baseline justify-between">
               <span className="text-sm text-gray-600 dark:text-gray-400">
                 {t('featured.from')}
               </span>
               <div className="text-right">
-                {property.min_price && property.min_price > 0 ? (
-                  <>
-                    <span className="text-2xl font-bold text-[#ba2e2d]">
-                      ฿{formatPrice(property.min_price)}
+                {(() => {
+                  // При поиске показываем цену объекта, без поиска - цену комплекса
+                  const hasSearchParams = checkIn || checkOut || name || bedrooms
+                  const displayPrice = hasSearchParams 
+                    ? property.min_price 
+                    : (property.complex_min_price || property.min_price)
+                  
+                  return (displayPrice && displayPrice > 0) ? (
+                    <>
+                      <span className="text-2xl font-bold text-[#ba2e2d]">
+                        ฿{formatPrice(displayPrice)}
+                      </span>
+                      <span className="text-sm text-gray-500 dark:text-gray-500">
+                        /{t('featured.night')}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-lg font-semibold text-amber-600 dark:text-amber-400">
+                      {t('property.pricing.onRequest')}
                     </span>
-                    <span className="text-sm text-gray-500 dark:text-gray-500">
-                      /{t('featured.night')}
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-lg font-semibold text-amber-600 dark:text-amber-400">
-                    {t('property.pricing.onRequest')}
-                  </span>
-                )}
+                  )
+                })()}
               </div>
             </div>
             )}

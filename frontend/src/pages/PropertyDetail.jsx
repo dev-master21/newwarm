@@ -36,6 +36,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner'
 import { propertyService } from '../services/property.service'
 import { useShortlistStore } from '../store/shortlistStore'
 import toast from 'react-hot-toast'
+import ComplexProperties from '../components/Property/ComplexProperties'
 
 const PropertyDetail = () => {
   const { t, i18n } = useTranslation()
@@ -1016,6 +1017,21 @@ const handleDateRangeSelect = (dates) => {
                 />
               </motion.div>
             )}
+            {/* Complex Properties - МОБИЛЬНАЯ версия */}
+            {property.complex_name && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.75 }}
+                className="lg:hidden scroll-mt-28"
+              >
+                <ComplexProperties
+                  complexName={property.complex_name}
+                  currentPropertyId={property.id}
+                  totalCount={property.complex_properties_count}
+                />
+              </motion.div>
+            )}
           </div>
 
           {/* Sidebar - DESKTOP */}
@@ -1086,6 +1102,20 @@ const handleDateRangeSelect = (dates) => {
                 </p>
               </div>
             </motion.div>
+            {/* Complex Properties - ДЕСКТОП */}
+            {property.complex_name && (
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.4 }}
+              >
+                <ComplexProperties
+                  complexName={property.complex_name}
+                  currentPropertyId={property.id}
+                  totalCount={property.complex_properties_count}
+                />
+              </motion.div>
+            )}
           </div>
         </div>
       </div>

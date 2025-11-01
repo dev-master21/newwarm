@@ -406,7 +406,19 @@ const PropertyCard = memo(({ property, index, nightsCount, onNavigate, formatPri
               <HiHome className="w-16 h-16 text-gray-400" />
             </div>
           )}
-
+          {/* Complex Badge */}
+          {property.complex_name && property.complex_count > 1 && (
+            <div className="absolute top-2 left-2 z-20">
+              <span className="bg-purple-600 text-white px-2.5 py-1 rounded-full text-xs font-bold 
+                           shadow-lg flex items-center space-x-1">
+                <HiHome className="w-3 h-3" />
+                <span>{t('property.complex.badge')}</span>
+                <span className="bg-white/30 px-1.5 py-0.5 rounded-full text-[10px]">
+                  {property.complex_count}
+                </span>
+              </span>
+            </div>
+          )}
           {property.price_per_night && (
             <div className="absolute top-2 right-2 bg-gradient-to-r from-blue-500 to-blue-600 
                           text-white px-2.5 sm:px-3 py-1 rounded-lg font-bold text-xs sm:text-sm shadow-lg">
@@ -419,7 +431,7 @@ const PropertyCard = memo(({ property, index, nightsCount, onNavigate, formatPri
         <div className="p-3 sm:p-4 space-y-2 sm:space-y-3">
           <div>
             <h4 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white mb-1 line-clamp-1">
-              {property.name}
+              {property.property_name || property.name || `Property #${property.id}`}
             </h4>
             {property.address && (
               <div className="flex items-start space-x-1 text-xs text-gray-600 dark:text-gray-400">
@@ -605,7 +617,7 @@ const PropertyCard = memo(({ property, index, nightsCount, onNavigate, formatPri
               <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 sm:p-5 flex items-center justify-between">
                 <h2 className="text-lg sm:text-xl font-bold text-white flex items-center space-x-2">
                   <HiLocationMarker className="w-5 h-5" />
-                  <span>{t('property.alternatives.propertyLocation')}</span>
+                  <span>{property.property_name || property.name}</span>
                 </h2>
                 <button
                   onClick={() => setShowMapModal(false)}

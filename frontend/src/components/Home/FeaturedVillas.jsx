@@ -8,7 +8,8 @@ import {
   HiChevronLeft,
   HiChevronRight,
   HiMap,
-  HiX
+  HiX,
+  HiHome
 } from 'react-icons/hi'
 import { IoBedOutline, IoExpand } from 'react-icons/io5'
 import { MdBathtub } from 'react-icons/md'
@@ -28,15 +29,46 @@ const FeaturedVillas = () => {
     loadFeaturedProperties()
   }, [i18n.language])
 
-  const loadFeaturedProperties = async () => {
+const loadFeaturedProperties = async () => {
     try {
       setLoading(true)
       // Используем эндпоинт /properties/map который уже существует
       const response = await mapService.getPropertiesForMap()
       
       if (response && Array.isArray(response)) {
-        // Берём только первые 6 объектов
-        setProperties(response.slice(0, 6))
+        // ========= ГРУППИРОВКА ПО КОМПЛЕКСАМ =========
+        const complexMap = new Map()
+        const standaloneProperties = []
+
+        for (const property of response) {
+          if (property.complex_name) {
+            // Объект в комплексе
+            if (!complexMap.has(property.complex_name)) {
+              // Первый объект из комплекса - добавляем
+              complexMap.set(property.complex_name, property)
+            } else {
+              // Уже есть объект из этого комплекса - сравниваем цены
+              const existing = complexMap.get(property.complex_name)
+              const existingPrice = existing.price_per_night || existing.min_price || Infinity
+              const currentPrice = property.price_per_night || property.min_price || Infinity
+              
+              // Если текущий объект дешевле - заменяем
+              if (currentPrice < existingPrice) {
+                complexMap.set(property.complex_name, property)
+              }
+            }
+          } else {
+            // Отдельный объект (не в комплексе) - всегда добавляем
+            standaloneProperties.push(property)
+          }
+        }
+
+        // Собираем финальный массив: объекты из комплексов + отдельные объекты
+        const groupedProperties = [...complexMap.values(), ...standaloneProperties]
+        
+        // Берём только первые 6 объектов ПОСЛЕ группировки
+        setProperties(groupedProperties.slice(0, 6))
+        // ========= КОНЕЦ ГРУППИРОВКИ =========
       }
     } catch (error) {
       console.error('Error loading featured properties:', error)
@@ -289,6 +321,19 @@ const PropertyCard = memo(({ property, index }) => {
               <span className="text-gray-400 dark:text-gray-500">{t('featured.noPhotos')}</span>
             </div>
           )}
+          {/* Complex Badge */}
+              {property.complex_name && property.complex_count > 1 && (
+                <div className="absolute bottom-3 left-3 z-10">
+                  <span className="bg-purple-600 text-white px-3 py-1.5 rounded-full text-xs font-bold 
+                               shadow-lg flex items-center space-x-1.5">
+                    <HiHome className="w-3.5 h-3.5" />
+                    <span>{t('property.complex.badge')}</span>
+                    <span className="bg-white/30 px-2 py-0.5 rounded-full">
+                      {property.complex_count}
+                    </span>
+                  </span>
+                </div>
+              )}
         </div>
 
         {/* Content */}
@@ -359,7 +404,7 @@ const PropertyCard = memo(({ property, index }) => {
             <div className="flex items-baseline space-x-1">
               <span className="text-sm text-gray-500 dark:text-gray-400">{t('featured.from')}</span>
               <span className="text-2xl font-bold bg-gradient-to-r from-[#ba2e2d] to-red-600 bg-clip-text text-transparent">
-                ฿{formatPrice(property.price_per_night)}
+                ฿{formatPrice(property.complex_min_price || property.price_per_night || property.min_price)}
               </span>
               <span className="text-sm text-gray-500 dark:text-gray-400">/ {t('featured.night')}</span>
             </div>
