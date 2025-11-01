@@ -18,12 +18,31 @@ const VRPanorama = ({ panoramas, isOpen, onClose }) => {
   const autoRotateSpeedRef = useRef(0)
   const textureCache = useRef(new Map())
   const isPreloadingRef = useRef(false)
+  const fovAnimationRef = useRef(null)
   
   const [selectedLocation, setSelectedLocation] = useState(null)
   const [loading, setLoading] = useState(true)
   const [loadingProgress, setLoadingProgress] = useState(0)
   const [isInteracting, setIsInteracting] = useState(false)
   const [showLocationMenu, setShowLocationMenu] = useState(false)
+
+  // Блокировка скролла при открытии VR
+  useEffect(() => {
+    if (isOpen) {
+      // Блокируем скролл body
+      document.body.style.overflow = 'hidden'
+      document.body.style.position = 'fixed'
+      document.body.style.width = '100%'
+      document.body.style.height = '100%'
+      
+      return () => {
+        document.body.style.overflow = ''
+        document.body.style.position = ''
+        document.body.style.width = ''
+        document.body.style.height = ''
+      }
+    }
+  }, [isOpen])
 
   useEffect(() => {
     if (!isOpen || !panoramas || panoramas.length === 0) return
@@ -72,6 +91,33 @@ const VRPanorama = ({ panoramas, isOpen, onClose }) => {
     return `${location.id || location.location_type}_${location.location_number || 0}`
   }
 
+  // Анимация FOV (zoom in эффект)
+  const animateFOV = (camera) => {
+    const startFOV = 120 // Начальный широкий угол
+    const endFOV = 75 // Конечный нормальный угол
+    const duration = 1500 // 1.5 секунды
+    const startTime = Date.now()
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      
+      // Easing функция для плавности
+      const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3)
+      const easedProgress = easeOutCubic(progress)
+      
+      const currentFOV = startFOV - (startFOV - endFOV) * easedProgress
+      camera.fov = currentFOV
+      camera.updateProjectionMatrix()
+      
+      if (progress < 1) {
+        fovAnimationRef.current = requestAnimationFrame(animate)
+      }
+    }
+    
+    animate()
+  }
+
   useEffect(() => {
     if (!isOpen || !containerRef.current || !selectedLocation) return
 
@@ -95,10 +141,14 @@ const VRPanorama = ({ panoramas, isOpen, onClose }) => {
     })
     renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight)
     renderer.setPixelRatio(window.devicePixelRatio)
-    // ИСПРАВЛЕНИЕ ТУСКЛОСТИ: правильное цветовое пространство
     renderer.outputColorSpace = THREE.SRGBColorSpace
     containerRef.current.appendChild(renderer.domElement)
     rendererRef.current = renderer
+
+    // Блокируем события touch на canvas для предотвращения скролла
+    renderer.domElement.style.touchAction = 'none'
+    renderer.domElement.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false })
+    renderer.domElement.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false })
 
     loadPanorama(selectedLocation)
 
@@ -117,6 +167,7 @@ const VRPanorama = ({ panoramas, isOpen, onClose }) => {
     let lat = 0
 
     const onMouseDown = (event) => {
+      event.preventDefault()
       isDragging = true
       setIsInteracting(true)
       autoRotateRef.current = false
@@ -130,6 +181,7 @@ const VRPanorama = ({ panoramas, isOpen, onClose }) => {
 
     const onMouseMove = (event) => {
       if (!isDragging) return
+      event.preventDefault()
 
       const currentX = event.clientX || event.touches?.[0]?.clientX
       const currentY = event.clientY || event.touches?.[0]?.clientY
@@ -145,19 +197,20 @@ const VRPanorama = ({ panoramas, isOpen, onClose }) => {
       lastInteractionRef.current = Date.now()
     }
 
-    const onMouseUp = () => {
+    const onMouseUp = (event) => {
+      event.preventDefault()
       isDragging = false
       setTimeout(() => setIsInteracting(false), 100)
       lastInteractionRef.current = Date.now()
     }
 
-    renderer.domElement.addEventListener('mousedown', onMouseDown)
-    renderer.domElement.addEventListener('mousemove', onMouseMove)
-    renderer.domElement.addEventListener('mouseup', onMouseUp)
-    renderer.domElement.addEventListener('mouseleave', onMouseUp)
-    renderer.domElement.addEventListener('touchstart', onMouseDown)
-    renderer.domElement.addEventListener('touchmove', onMouseMove)
-    renderer.domElement.addEventListener('touchend', onMouseUp)
+    renderer.domElement.addEventListener('mousedown', onMouseDown, { passive: false })
+    renderer.domElement.addEventListener('mousemove', onMouseMove, { passive: false })
+    renderer.domElement.addEventListener('mouseup', onMouseUp, { passive: false })
+    renderer.domElement.addEventListener('mouseleave', onMouseUp, { passive: false })
+    renderer.domElement.addEventListener('touchstart', onMouseDown, { passive: false })
+    renderer.domElement.addEventListener('touchmove', onMouseMove, { passive: false })
+    renderer.domElement.addEventListener('touchend', onMouseUp, { passive: false })
 
     const animate = () => {
       animationRef.current = requestAnimationFrame(animate)
@@ -198,7 +251,12 @@ const VRPanorama = ({ panoramas, isOpen, onClose }) => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current)
       }
+      if (fovAnimationRef.current) {
+        cancelAnimationFrame(fovAnimationRef.current)
+      }
       window.removeEventListener('resize', handleResize)
+      
+      // Удаляем все event listeners
       renderer.domElement.removeEventListener('mousedown', onMouseDown)
       renderer.domElement.removeEventListener('mousemove', onMouseMove)
       renderer.domElement.removeEventListener('mouseup', onMouseUp)
@@ -218,9 +276,7 @@ const VRPanorama = ({ panoramas, isOpen, onClose }) => {
           if (object.geometry) object.geometry.dispose()
           if (object.material) {
             if (Array.isArray(object.material)) {
-              object.material.forEach(material => {
-                material.dispose()
-              })
+              object.material.forEach(material => material.dispose())
             } else {
               object.material.dispose()
             }
@@ -271,7 +327,6 @@ const VRPanorama = ({ panoramas, isOpen, onClose }) => {
             
             texture.wrapS = THREE.RepeatWrapping
             texture.repeat.x = -1
-            // ИСПРАВЛЕНИЕ ТУСКЛОСТИ: правильное цветовое пространство
             texture.colorSpace = THREE.SRGBColorSpace
             
             loadedTextures[index] = texture
@@ -370,6 +425,11 @@ const VRPanorama = ({ panoramas, isOpen, onClose }) => {
       console.log('🎉 VR panorama loaded successfully')
       setLoading(false)
       
+      // Запускаем анимацию FOV после загрузки
+      if (cameraRef.current) {
+        animateFOV(cameraRef.current)
+      }
+      
       setTimeout(() => {
         preloadOtherLocations()
       }, 1000)
@@ -384,24 +444,7 @@ const VRPanorama = ({ panoramas, isOpen, onClose }) => {
     console.log('🔄 Switching to location:', location)
     setSelectedLocation(location)
     setShowLocationMenu(false)
-    autoRotateRef.current = false
-    autoRotateSpeedRef.current = 0
-    lastInteractionRef.current = Date.now()
   }
-
-  useEffect(() => {
-    return () => {
-      if (!isOpen) {
-        console.log('🧹 Cleaning up texture cache')
-        textureCache.current.forEach((textures) => {
-          textures.forEach(texture => {
-            if (texture) texture.dispose()
-          })
-        })
-        textureCache.current.clear()
-      }
-    }
-  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -412,26 +455,58 @@ const VRPanorama = ({ panoramas, isOpen, onClose }) => {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-50 bg-black"
+        style={{ touchAction: 'none' }}
       >
-        <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/60 to-transparent">
-          <div className="flex items-center justify-between p-4">
-            <div className="flex items-center space-x-3">
-              <MdVrpano className="w-8 h-8 text-white" />
-              <div>
-                <h2 className="text-xl font-bold text-white">
-                  {t('vr.title')}
-                </h2>
-                {selectedLocation && (
-                  <p className="text-sm text-white/70">
-                    {getLocationName(selectedLocation)}
-                  </p>
-                )}
+        {/* Header - ВСЕГДА видна (и при загрузке тоже) */}
+        <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-b from-black/80 to-transparent p-4">
+          <div className="flex items-center justify-between">
+            {/* Location selector */}
+            {panoramas && panoramas.length > 1 && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowLocationMenu(!showLocationMenu)}
+                  className="flex items-center space-x-2 px-4 py-2 bg-white/10 backdrop-blur-sm 
+                           hover:bg-white/20 rounded-xl text-white font-medium transition-colors"
+                >
+                  <HiLocationMarker className="w-5 h-5" />
+                  <span>{selectedLocation ? getLocationName(selectedLocation) : t('vr.selectLocation')}</span>
+                  <HiChevronDown className={`w-4 h-4 transition-transform ${showLocationMenu ? 'rotate-180' : ''}`} />
+                </button>
+
+                <AnimatePresence>
+                  {showLocationMenu && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute top-full mt-2 left-0 min-w-[200px] bg-white dark:bg-gray-800 
+                               rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+                    >
+                      {panoramas.map((panorama) => (
+                        <button
+                          key={getLocationKey(panorama)}
+                          onClick={() => handleLocationChange(panorama)}
+                          className={`w-full px-4 py-3 text-left transition-colors ${
+                            selectedLocation && getLocationKey(selectedLocation) === getLocationKey(panorama)
+                              ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                              : 'text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700'
+                          }`}
+                        >
+                          {getLocationName(panorama)}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-            </div>
+            )}
+
+            {/* Close button - ВСЕГДА видна */}
             <button
               onClick={onClose}
-              className="w-10 h-10 bg-white/10 backdrop-blur-sm rounded-full
-                       flex items-center justify-center hover:bg-white/20 transition-colors"
+              className="p-3 bg-white/10 backdrop-blur-sm hover:bg-white/20 rounded-full 
+                       transition-colors ml-auto"
+              aria-label={t('vr.close')}
             >
               <HiX className="w-6 h-6 text-white" />
             </button>
@@ -440,13 +515,14 @@ const VRPanorama = ({ panoramas, isOpen, onClose }) => {
 
         <div ref={containerRef} className="w-full h-full" />
 
+        {/* Loading overlay */}
         <AnimatePresence>
           {loading && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 flex items-center justify-center bg-black z-20"
+              className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm z-20 pointer-events-none"
             >
               <div className="text-center">
                 <div className="relative w-32 h-32 mx-auto mb-6">
@@ -463,7 +539,7 @@ const VRPanorama = ({ panoramas, isOpen, onClose }) => {
                       cx="64"
                       cy="64"
                       r="56"
-                      stroke="#ba2e2d"
+                      stroke="#abaeb3ff"
                       strokeWidth="8"
                       fill="none"
                       strokeLinecap="round"
@@ -472,91 +548,21 @@ const VRPanorama = ({ panoramas, isOpen, onClose }) => {
                       transition={{ duration: 0.3 }}
                       style={{
                         strokeDasharray: '351.68',
-                        strokeDashoffset: `${351.68 * (1 - loadingProgress / 100)}`
+                        strokeDashoffset: '0'
                       }}
                     />
                   </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <MdVrpano className="w-12 h-12 text-white animate-pulse" />
-                  </div>
                 </div>
-                
-                <p className="text-2xl font-bold text-white mb-2">
-                  {Math.round(loadingProgress)}%
-                </p>
-                <p className="text-white/60">
+                <p className="text-white text-lg font-medium mb-2">
                   {t('vr.loading')}
+                </p>
+                <p className="text-gray-300 text-sm">
+                  {Math.round(loadingProgress)}%
                 </p>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
-
-        {!loading && panoramas && panoramas.length > 1 && (
-          <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-10">
-            <div className="relative">
-              <button
-                onClick={() => setShowLocationMenu(!showLocationMenu)}
-                className="flex items-center space-x-3 px-6 py-3 
-                         bg-gray-900 hover:bg-gray-800 rounded-xl transition-all 
-                         border-2 border-white/30 shadow-2xl"
-              >
-                <HiLocationMarker className="w-5 h-5 text-white" />
-                <span className="text-white font-medium">
-                  {selectedLocation && getLocationName(selectedLocation)}
-                </span>
-                <HiChevronDown 
-                  className={`w-5 h-5 text-white transition-transform ${
-                    showLocationMenu ? 'rotate-180' : ''
-                  }`} 
-                />
-              </button>
-
-              <AnimatePresence>
-                {showLocationMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    className="absolute bottom-full mb-2 left-0 right-0 
-                             bg-gray-900 rounded-xl border-2 border-white/30 
-                             overflow-hidden shadow-2xl"
-                  >
-                    {panoramas.map((location, index) => (
-                      <button
-                        key={index}
-                        onClick={() => handleLocationChange(location)}
-                        className={`w-full px-6 py-3 text-left hover:bg-gray-800 transition-colors
-                                  ${selectedLocation === location ? 'bg-gray-800' : ''}`}
-                      >
-                        <span className="text-white font-medium">
-                          {getLocationName(location)}
-                        </span>
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-        )}
-
-        {/* Подсказка - скрывается когда открыто меню локаций */}
-        {!loading && !isInteracting && !showLocationMenu && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ delay: 1 }}
-            className="absolute bottom-24 left-1/2 transform -translate-x-1/2 z-10 pointer-events-none"
-          >
-            <div className="px-6 py-3 bg-black/60 backdrop-blur-sm rounded-full border border-white/20">
-              <p className="text-white/80 text-sm">
-                {t('vr.hint')}
-              </p>
-            </div>
-          </motion.div>
-        )}
       </motion.div>
     </AnimatePresence>
   )

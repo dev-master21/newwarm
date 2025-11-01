@@ -12,8 +12,14 @@ import {
   HiTag,
   HiArrowRight,
   HiX,
-  HiHashtag
+  HiHashtag,
+  HiHome,
+  HiEye,
+  HiPlus
 } from 'react-icons/hi'
+import { IoBedOutline } from 'react-icons/io5'
+import { MdBathtub, MdKitchen, MdWeekend } from 'react-icons/md'
+import { FaSwimmingPool } from 'react-icons/fa'
 import propertyApi from '../../api/propertyApi'
 import toast from 'react-hot-toast'
 
@@ -31,9 +37,32 @@ const PhotosEditor = ({ photos: initialPhotos, propertyId, onUpdate }) => {
   const [movingPhotoId, setMovingPhotoId] = useState(null)
   const [positionChangePhotoId, setPositionChangePhotoId] = useState(null)
   const [newPosition, setNewPosition] = useState('')
+  const [bedroomCount, setBedroomCount] = useState(1)
   
-  // Фиксированные категории
-  const categories = [
+  // Получаем иконку для категории
+  const getCategoryIcon = (categoryValue) => {
+    const iconMap = {
+      general: HiPhotograph,
+      bedroom: IoBedOutline,
+      bathroom: MdBathtub,
+      kitchen: MdKitchen,
+      living: MdWeekend,
+      exterior: HiHome,
+      pool: FaSwimmingPool,
+      view: HiEye
+    }
+    
+    // Для спален с номерами (bedroom-1, bedroom-2 и т.д.)
+    if (categoryValue.startsWith('bedroom-')) {
+      return IoBedOutline
+    }
+    
+    const Icon = iconMap[categoryValue] || HiPhotograph
+    return Icon
+  }
+
+  // Базовые категории
+  const baseCategories = [
     { value: 'general', label: t('admin.photosEditor.categories.general') },
     { value: 'bedroom', label: t('admin.photosEditor.categories.bedroom') },
     { value: 'bathroom', label: t('admin.photosEditor.categories.bathroom') },
@@ -44,9 +73,45 @@ const PhotosEditor = ({ photos: initialPhotos, propertyId, onUpdate }) => {
     { value: 'view', label: t('admin.photosEditor.categories.view') }
   ]
 
+  // Генерируем категории с учетом количества спален
+  const generateCategories = () => {
+    const cats = []
+    
+    for (const cat of baseCategories) {
+      if (cat.value === 'bedroom') {
+        // Добавляем спальни с номерами
+        for (let i = 1; i <= bedroomCount; i++) {
+          cats.push({
+            value: `bedroom-${i}`,
+            label: `${t('admin.photosEditor.categories.bedroom')} ${i}`,
+            isSubcategory: true,
+            parentCategory: 'bedroom'
+          })
+        }
+      } else {
+        cats.push(cat)
+      }
+    }
+    
+    return cats
+  }
+
+  const categories = generateCategories()
+
   // Синхронизация с props
   useEffect(() => {
     setLocalPhotos(initialPhotos)
+    
+    // Определяем максимальное количество спален из существующих фото
+    const maxBedroom = initialPhotos.reduce((max, photo) => {
+      if (photo.category && photo.category.startsWith('bedroom-')) {
+        const num = parseInt(photo.category.split('-')[1])
+        return Math.max(max, num)
+      }
+      return max
+    }, 1)
+    
+    setBedroomCount(maxBedroom)
   }, [initialPhotos])
 
   // Группировка фотографий по категориям
@@ -63,6 +128,45 @@ const PhotosEditor = ({ photos: initialPhotos, propertyId, onUpdate }) => {
   Object.keys(groupedPhotos).forEach(category => {
     groupedPhotos[category].sort((a, b) => a.sort_order - b.sort_order)
   })
+
+  // Добавление спальни
+  const handleAddBedroom = () => {
+    setBedroomCount(prev => prev + 1)
+    toast.success(t('admin.photosEditor.success.bedroomAdded', { number: bedroomCount + 1 }))
+  }
+
+  // Удаление спальни
+  const handleRemoveBedroom = async (bedroomNumber) => {
+    const bedroomCategory = `bedroom-${bedroomNumber}`
+    const bedroomPhotos = groupedPhotos[bedroomCategory] || []
+    
+    if (bedroomPhotos.length > 0) {
+      const confirmed = window.confirm(
+        t('admin.photosEditor.confirm.deleteBedroomWithPhotos', { 
+          number: bedroomNumber, 
+          count: bedroomPhotos.length 
+        })
+      )
+      if (!confirmed) return
+      
+      // Удаляем все фото этой спальни
+      for (const photo of bedroomPhotos) {
+        try {
+          await propertyApi.deletePhoto(photo.id)
+        } catch (error) {
+          console.error('Failed to delete photo:', error)
+        }
+      }
+    }
+    
+    setBedroomCount(prev => Math.max(1, prev - 1))
+    
+    if (onUpdate) {
+      await onUpdate()
+    }
+    
+    toast.success(t('admin.photosEditor.success.bedroomRemoved', { number: bedroomNumber }))
+  }
 
   // Загрузка файлов
   const handleFileSelect = async (e) => {
@@ -101,66 +205,60 @@ const PhotosEditor = ({ photos: initialPhotos, propertyId, onUpdate }) => {
     }
   }
 
-  // Удаление фото с optimistic update
-  const handleDeletePhoto = async (photoId, closeModal = false) => {
-    if (!window.confirm(t('admin.photosEditor.confirm.deletePhoto'))) return
+  // Удаление фотографии
+  const handleDeletePhoto = async (photoId) => {
+    const confirmed = window.confirm(t('admin.photosEditor.confirm.deletePhoto'))
+    if (!confirmed) return
 
-    if (closeModal) {
-      setSelectedPhotoForMobile(null)
-    }
-
-    // Optimistic update
     const oldPhotos = [...localPhotos]
     setLocalPhotos(localPhotos.filter(p => p.id !== photoId))
-    
-    setProcessingPhotoId(photoId)
 
     try {
       await propertyApi.deletePhoto(photoId)
-      toast.success(t('admin.photosEditor.success.deleted'))
+      toast.success(t('admin.photosEditor.success.photoDeleted'))
+      
+      if (onUpdate) {
+        await onUpdate()
+      }
     } catch (error) {
       console.error('Failed to delete photo:', error)
       toast.error(t('admin.photosEditor.errors.deleteFailed'))
-      
-      // Откат изменений
       setLocalPhotos(oldPhotos)
-    } finally {
-      setProcessingPhotoId(null)
     }
   }
 
-  // Установка главной фотографии с optimistic update
-  const handleSetPrimary = async (photoId, closeModal = false) => {
-    if (closeModal) {
-      setSelectedPhotoForMobile(null)
-    }
-
-    // Optimistic update
+  // Установка главной фотографии
+  const handleSetPrimary = async (photoId) => {
     const oldPhotos = [...localPhotos]
     setLocalPhotos(localPhotos.map(p => ({
       ...p,
       is_primary: p.id === photoId
     })))
-    
-    setProcessingPhotoId(photoId)
 
     try {
       await propertyApi.setPrimaryPhoto(photoId, 'global')
       toast.success(t('admin.photosEditor.success.primarySet'))
+      
+      if (onUpdate) {
+        await onUpdate()
+      }
     } catch (error) {
       console.error('Failed to set primary photo:', error)
       toast.error(t('admin.photosEditor.errors.primaryFailed'))
-      
-      // Откат изменений
       setLocalPhotos(oldPhotos)
-    } finally {
-      setProcessingPhotoId(null)
     }
   }
 
-  // Перемещение фото в другую категорию
+  // Получение категории фотографии
+  const getPhotoCategory = (photoId) => {
+    const photo = localPhotos.find(p => p.id === photoId)
+    return photo?.category || 'general'
+  }
+
+  // Перемещение фотографии в другую категорию
   const handleMovePhoto = async (photoId, newCategory) => {
     const oldPhotos = [...localPhotos]
+    
     setLocalPhotos(localPhotos.map(p => 
       p.id === photoId ? { ...p, category: newCategory } : p
     ))
@@ -252,66 +350,53 @@ const PhotosEditor = ({ photos: initialPhotos, propertyId, onUpdate }) => {
       const newLocalPhotos = localPhotos.map(p => 
         p.id === movedItem.id ? updatedPhoto : p
       )
+
       setLocalPhotos(newLocalPhotos)
-      
-      setProcessingPhotoId(movedItem.id)
 
       try {
         await propertyApi.updatePhotoCategory(movedItem.id, destinationCategory)
         toast.success(t('admin.photosEditor.success.photoMoved'))
+        
+        if (onUpdate) {
+          await onUpdate()
+        }
       } catch (error) {
         console.error('Failed to move photo:', error)
         toast.error(t('admin.photosEditor.errors.moveFailed'))
-        
-        // Откат изменений
         setLocalPhotos(oldPhotos)
-      } finally {
-        setProcessingPhotoId(null)
       }
     } else {
-      // Перемещение внутри одной категории (изменение порядка)
+      // Перемещение внутри одной категории
       const items = Array.from(groupedPhotos[sourceCategory])
       const [reorderedItem] = items.splice(result.source.index, 1)
       items.splice(result.destination.index, 0, reorderedItem)
 
-      // Optimistic update - обновляем sort_order
-      const updatedPhotos = items.map((photo, index) => ({
-        ...photo,
+      // Обновляем sort_order
+      const updatedPhotos = items.map((item, index) => ({
+        ...item,
         sort_order: index
       }))
 
-      const newLocalPhotos = localPhotos.map(photo => {
-        const updated = updatedPhotos.find(p => p.id === photo.id)
-        return updated || photo
+      const newLocalPhotos = localPhotos.map(p => {
+        const updated = updatedPhotos.find(up => up.id === p.id)
+        return updated || p
       })
+
       setLocalPhotos(newLocalPhotos)
 
       try {
-        const photosToUpdate = updatedPhotos.map((photo, index) => ({
-          id: photo.id,
+        const photosToUpdate = updatedPhotos.map((p, index) => ({
+          id: p.id,
           sort_order: index
         }))
         
         await propertyApi.updatePhotosOrder(propertyId, photosToUpdate)
-        toast.success(t('admin.photosEditor.success.reordered'))
       } catch (error) {
-        console.error('Failed to update order:', error)
+        console.error('Failed to reorder photos:', error)
         toast.error(t('admin.photosEditor.errors.reorderFailed'))
-        
-        // Откат изменений
         setLocalPhotos(oldPhotos)
       }
     }
-  }
-
-  // Получить текущую категорию фото
-  const getPhotoCategory = (photoId) => {
-    for (const [category, photos] of Object.entries(groupedPhotos)) {
-      if (photos.some(p => p.id === photoId)) {
-        return category
-      }
-    }
-    return 'general'
   }
 
   return (
@@ -359,11 +444,25 @@ const PhotosEditor = ({ photos: initialPhotos, propertyId, onUpdate }) => {
             <div className="p-6 space-y-6">
               {/* Upload Section */}
               <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-xl p-6 border-2 border-blue-200 dark:border-blue-800">
-                <div className="flex items-center space-x-3 mb-4">
-                  <HiUpload className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                  <h4 className="text-lg font-bold text-gray-900 dark:text-white">
-                    {t('admin.photosEditor.upload.title')}
-                  </h4>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <HiUpload className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                    <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+                      {t('admin.photosEditor.upload.title')}
+                    </h4>
+                  </div>
+                  
+                  {/* Кнопка добавления спальни */}
+                  {selectedCategory.startsWith('bedroom-') && (
+                    <button
+                      onClick={handleAddBedroom}
+                      className="flex items-center space-x-2 px-3 py-2 bg-green-500 hover:bg-green-600 
+                               text-white rounded-lg transition-colors text-sm font-medium"
+                    >
+                      <HiPlus className="w-4 h-4" />
+                      <span>{t('admin.photosEditor.addBedroom')}</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Category Selection */}
@@ -371,6 +470,7 @@ const PhotosEditor = ({ photos: initialPhotos, propertyId, onUpdate }) => {
                   {categories.map((cat) => {
                     const isSelected = selectedCategory === cat.value
                     const photoCount = groupedPhotos[cat.value]?.length || 0
+                    const Icon = getCategoryIcon(cat.value)
                     
                     return (
                       <button
@@ -382,12 +482,12 @@ const PhotosEditor = ({ photos: initialPhotos, propertyId, onUpdate }) => {
                             : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600'
                         }`}
                       >
-                        <HiTag className={`w-6 h-6 mb-2 ${
+                        <Icon className={`w-6 h-6 mb-2 ${
                           isSelected 
                             ? 'text-blue-600 dark:text-blue-400'
                             : 'text-gray-400'
                         }`} />
-                        <span className={`text-sm font-semibold ${
+                        <span className={`text-sm font-semibold text-center ${
                           isSelected
                             ? 'text-blue-700 dark:text-blue-300'
                             : 'text-gray-600 dark:text-gray-400'
@@ -397,6 +497,20 @@ const PhotosEditor = ({ photos: initialPhotos, propertyId, onUpdate }) => {
                         <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                           {photoCount} {t('admin.photosEditor.photos')}
                         </span>
+                        
+                        {/* Кнопка удаления спальни */}
+                        {cat.value.startsWith('bedroom-') && photoCount === 0 && bedroomCount > 1 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleRemoveBedroom(parseInt(cat.value.split('-')[1]))
+                            }}
+                            className="mt-2 p-1 hover:bg-red-100 dark:hover:bg-red-900/20 
+                                     text-red-600 rounded-full transition-colors"
+                          >
+                            <HiTrash className="w-4 h-4" />
+                          </button>
+                        )}
                       </button>
                     )
                   })}
@@ -425,8 +539,8 @@ const PhotosEditor = ({ photos: initialPhotos, propertyId, onUpdate }) => {
                 >
                   {uploading ? (
                     <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
-                      <span>{t('admin.photosEditor.upload.uploading')}</span>
+                      <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>{t('admin.photosEditor.upload.uploading')} {uploadProgress}%</span>
                     </>
                   ) : (
                     <>
@@ -436,35 +550,27 @@ const PhotosEditor = ({ photos: initialPhotos, propertyId, onUpdate }) => {
                   )}
                 </motion.button>
 
-                {/* Upload Progress */}
                 {uploading && (
-                  <div className="mt-4 space-y-2">
-                    <div className="flex items-center justify-between text-sm font-medium text-blue-700 dark:text-blue-300">
-                      <span>{t('admin.photosEditor.upload.progress')}</span>
-                      <span>{uploadProgress}%</span>
-                    </div>
-                    <div className="w-full bg-blue-200 dark:bg-blue-900 rounded-full h-3 overflow-hidden">
+                  <div className="mt-4">
+                    <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${uploadProgress}%` }}
-                        className="h-full bg-gradient-to-r from-blue-600 to-cyan-600"
+                        className="h-full bg-gradient-to-r from-blue-500 to-cyan-500"
                       />
                     </div>
                   </div>
                 )}
-              </div>
 
-              {/* Info Banner */}
-              <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-2 border-purple-200 dark:border-purple-800 rounded-xl p-4">
-                <p className="text-sm text-purple-800 dark:text-purple-200 font-medium text-center">
-                  💡 {t('admin.photosEditor.dragDropHint')}
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
+                  {t('admin.photosEditor.dragDropHint')}
                 </p>
               </div>
 
-              {/* Photos Grid by Category */}
+              {/* Photos Grid - Drag & Drop */}
               <DragDropContext onDragEnd={handleDragEnd}>
-                <div className="space-y-8">
-                  {Object.keys(groupedPhotos).length === 0 ? (
+                <div className="space-y-6">
+                  {localPhotos.length === 0 ? (
                     <div className="text-center py-16 bg-gray-50 dark:bg-gray-700/50 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
                       <HiPhotograph className="w-20 h-20 mx-auto mb-4 text-gray-400" />
                       <p className="text-xl font-bold text-gray-600 dark:text-gray-400 mb-2">
@@ -479,6 +585,7 @@ const PhotosEditor = ({ photos: initialPhotos, propertyId, onUpdate }) => {
                       .filter(cat => groupedPhotos[cat.value])
                       .map((category) => {
                         const categoryPhotos = groupedPhotos[category.value]
+                        const Icon = getCategoryIcon(category.value)
                         
                         return (
                           <div key={category.value} className="space-y-4">
@@ -486,7 +593,7 @@ const PhotosEditor = ({ photos: initialPhotos, propertyId, onUpdate }) => {
                             <div className="flex items-center justify-between pb-3 border-b-2 border-gray-200 dark:border-gray-700">
                               <div className="flex items-center space-x-3">
                                 <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                                  <HiTag className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                                  <Icon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                                 </div>
                                 <div>
                                   <h4 className="text-lg font-bold text-gray-900 dark:text-white">
@@ -507,14 +614,14 @@ const PhotosEditor = ({ photos: initialPhotos, propertyId, onUpdate }) => {
                                   {...provided.droppableProps}
                                   className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 p-6 rounded-xl transition-all min-h-[200px] ${
                                     snapshot.isDraggingOver 
-                                      ? 'bg-blue-100 dark:bg-blue-900/20 border-2 border-dashed border-blue-500 scale-[1.02]' 
-                                      : 'bg-gray-50 dark:bg-gray-700/30 border-2 border-transparent'
+                                      ? 'bg-blue-50 dark:bg-blue-900/20 border-2 border-dashed border-blue-400'
+                                      : 'bg-gray-50 dark:bg-gray-700/50'
                                   }`}
                                 >
                                   {categoryPhotos.map((photo, index) => (
-                                    <Draggable
-                                      key={photo.id}
-                                      draggableId={String(photo.id)}
+                                    <Draggable 
+                                      key={photo.id} 
+                                      draggableId={photo.id.toString()} 
                                       index={index}
                                     >
                                       {(provided, snapshot) => (
@@ -522,113 +629,78 @@ const PhotosEditor = ({ photos: initialPhotos, propertyId, onUpdate }) => {
                                           ref={provided.innerRef}
                                           {...provided.draggableProps}
                                           {...provided.dragHandleProps}
-                                          style={{
-                                            ...provided.draggableProps.style,
-                                            // Исправление для Drag&Drop - убираем смещение
-                                            transform: snapshot.isDragging
-                                              ? provided.draggableProps.style?.transform
-                                              : 'translate(0px, 0px)'
-                                          }}
-                                          className={`relative group ${
-                                            snapshot.isDragging ? 'z-50 opacity-80' : ''
+                                          className={`relative group rounded-xl overflow-hidden shadow-md transition-all ${
+                                            snapshot.isDragging 
+                                              ? 'ring-4 ring-blue-400 scale-105 z-50' 
+                                              : 'hover:shadow-xl'
                                           }`}
                                         >
-                                          {/* Photo Container */}
-                                          <div 
-                                            className={`relative aspect-square rounded-xl overflow-hidden bg-gray-200 dark:bg-gray-600 shadow-md hover:shadow-2xl transition-all ${
-                                              snapshot.isDragging ? 'cursor-grabbing' : 'cursor-grab'
-                                            } ${
-                                              photo.is_primary ? 'ring-4 ring-yellow-400 ring-offset-2 dark:ring-yellow-500' : ''
-                                            } ${
-                                              processingPhotoId === photo.id ? 'opacity-50' : ''
-                                            }`}
-                                            onClick={() => setSelectedPhotoForMobile(photo)}
-                                          >
-                                            <img
-                                              src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${photo.photo_url}`}
-                                              alt=""
-                                              className="w-full h-full object-cover pointer-events-none select-none"
-                                              draggable="false"
-                                            />
-                                            
-                                            {/* Primary Badge - ВСЕГДА ПОКАЗЫВАЕТСЯ если is_primary */}
-                                            {photo.is_primary && (
-                                              <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-yellow-500/90 to-transparent p-3 z-10">
-                                                <div className="flex items-center space-x-2 bg-yellow-500 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-lg w-fit">
-                                                  <HiStar className="w-4 h-4" />
-                                                  <span>{t('admin.photosEditor.badges.primary')}</span>
-                                                </div>
-                                              </div>
-                                            )}
-
-                                            {/* Category & Order Badge */}
-                                            <div className="absolute top-3 right-3 bg-blue-500 text-white px-2 py-1 rounded-lg text-xs font-bold shadow-lg z-10">
-                                              #{index + 1}
+                                          <img
+                                            src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${photo.photo_url}`}
+                                            alt={`Photo ${index + 1}`}
+                                            className="w-full h-48 object-cover"
+                                          />
+                                          
+                                          {/* Primary Badge */}
+                                          {photo.is_primary && (
+                                            <div className="absolute top-2 left-2 px-3 py-1 bg-yellow-500 text-white text-xs font-bold rounded-full flex items-center space-x-1">
+                                              <HiStar className="w-4 h-4" />
+                                              <span>{t('admin.photosEditor.badges.primary')}</span>
                                             </div>
+                                          )}
 
-                                            {/* Desktop Hover Overlay with Actions */}
-                                            <div className="hidden md:block absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 z-20">
-                                              <div className="absolute bottom-0 left-0 right-0 p-3 space-y-2">
-                                                {/* Set Primary Button */}
-                                                <button
-                                                  onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    handleSetPrimary(photo.id)
-                                                  }}
-                                                  disabled={processingPhotoId === photo.id}
-                                                  className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors shadow-lg text-sm font-semibold disabled:opacity-50"
-                                                >
-                                                  <HiStar className="w-4 h-4" />
-                                                  <span>{t('admin.photosEditor.actions.setPrimary')}</span>
-                                                </button>
-
-                                                {/* Change Position Button */}
-                                                <button
-                                                  onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    setPositionChangePhotoId(photo.id)
-                                                  }}
-                                                  disabled={processingPhotoId === photo.id}
-                                                  className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition-colors shadow-lg text-sm font-semibold disabled:opacity-50"
-                                                >
-                                                  <HiHashtag className="w-4 h-4" />
-                                                  <span>{t('admin.photosEditor.actions.changePosition')}</span>
-                                                </button>
-
-                                                {/* Move Button */}
-                                                <button
-                                                  onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    setMovingPhotoId(photo.id)
-                                                  }}
-                                                  disabled={processingPhotoId === photo.id}
-                                                  className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors shadow-lg text-sm font-semibold disabled:opacity-50"
-                                                >
-                                                  <HiArrowRight className="w-4 h-4" />
-                                                  <span>{t('admin.photosEditor.actions.move')}</span>
-                                                </button>
-
-                                                {/* Delete Button */}
-                                                <button
-                                                  onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    handleDeletePhoto(photo.id)
-                                                  }}
-                                                  disabled={processingPhotoId === photo.id}
-                                                  className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors shadow-lg text-sm font-semibold disabled:opacity-50"
-                                                >
-                                                  {processingPhotoId === photo.id ? (
-                                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                                                  ) : (
-                                                    <>
-                                                      <HiTrash className="w-4 h-4" />
-                                                      <span>{t('admin.photosEditor.actions.delete')}</span>
-                                                    </>
-                                                  )}
-                                                </button>
-                                              </div>
-                                            </div>
+                                          {/* Position Number */}
+                                          <div className="absolute top-2 right-2 w-8 h-8 bg-black/70 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                                            {index + 1}
                                           </div>
+
+                                          {/* Actions - Desktop */}
+                                          <div className="hidden md:flex absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity items-center justify-center space-x-2">
+                                            {!photo.is_primary && (
+                                              <button
+                                                onClick={() => handleSetPrimary(photo.id)}
+                                                className="p-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors"
+                                                title={t('admin.photosEditor.actions.setPrimary')}
+                                              >
+                                                <HiStar className="w-5 h-5" />
+                                              </button>
+                                            )}
+                                            
+                                            <button
+                                              onClick={() => setMovingPhotoId(photo.id)}
+                                              className="p-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors"
+                                              title={t('admin.photosEditor.actions.move')}
+                                            >
+                                              <HiArrowRight className="w-5 h-5" />
+                                            </button>
+
+                                            <button
+                                              onClick={() => {
+                                                setPositionChangePhotoId(photo.id)
+                                                setNewPosition((index + 1).toString())
+                                              }}
+                                              className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                                              title={t('admin.photosEditor.actions.changePosition')}
+                                            >
+                                              <HiHashtag className="w-5 h-5" />
+                                            </button>
+                                            
+                                            <button
+                                              onClick={() => handleDeletePhoto(photo.id)}
+                                              className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+                                              title={t('admin.photosEditor.actions.delete')}
+                                            >
+                                              <HiTrash className="w-5 h-5" />
+                                            </button>
+                                          </div>
+
+                                          {/* Actions - Mobile */}
+                                          <button
+                                            onClick={() => setSelectedPhotoForMobile(photo.id)}
+                                            className="md:hidden absolute bottom-2 right-2 p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-lg"
+                                          >
+                                            <HiTag className="w-5 h-5" />
+                                          </button>
                                         </div>
                                       )}
                                     </Draggable>
@@ -648,117 +720,157 @@ const PhotosEditor = ({ photos: initialPhotos, propertyId, onUpdate }) => {
         )}
       </AnimatePresence>
 
-      {/* Mobile Action Modal */}
+      {/* Mobile Actions Modal */}
       <AnimatePresence>
         {selectedPhotoForMobile && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="md:hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end justify-center z-50 p-0"
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4"
             onClick={() => setSelectedPhotoForMobile(null)}
           >
             <motion.div
-              initial={{ y: '100%' }}
+              initial={{ y: 100 }}
               animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              exit={{ y: 100 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6 space-y-3"
               onClick={(e) => e.stopPropagation()}
-              className="bg-white dark:bg-gray-800 rounded-t-3xl w-full max-h-[80vh] overflow-y-auto"
             >
-              {/* Modal Header */}
-              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between z-10">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                  {t('admin.photosEditor.mobileModal.title')}
-                </h3>
-                <button
-                  onClick={() => setSelectedPhotoForMobile(null)}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                >
-                  <HiX className="w-6 h-6 text-gray-500" />
-                </button>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+                {t('admin.photosEditor.mobileModal.title')}
+              </h3>
+
+              <button
+                onClick={() => {
+                  handleSetPrimary(selectedPhotoForMobile)
+                  setSelectedPhotoForMobile(null)
+                }}
+                className="w-full flex items-center space-x-3 px-4 py-3 bg-yellow-50 dark:bg-yellow-900/20 hover:bg-yellow-100 dark:hover:bg-yellow-900/30 rounded-xl transition-colors"
+              >
+                <HiStar className="w-5 h-5 text-yellow-600" />
+                <span className="font-medium text-gray-900 dark:text-white">
+                  {t('admin.photosEditor.actions.setPrimary')}
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setMovingPhotoId(selectedPhotoForMobile)
+                  setSelectedPhotoForMobile(null)
+                }}
+                className="w-full flex items-center space-x-3 px-4 py-3 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-xl transition-colors"
+              >
+                <HiArrowRight className="w-5 h-5 text-purple-600" />
+                <span className="font-medium text-gray-900 dark:text-white">
+                  {t('admin.photosEditor.actions.move')}
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  const photo = localPhotos.find(p => p.id === selectedPhotoForMobile)
+                  const categoryPhotos = groupedPhotos[photo.category || 'general']
+                  const currentIndex = categoryPhotos.findIndex(p => p.id === selectedPhotoForMobile)
+                  setPositionChangePhotoId(selectedPhotoForMobile)
+                  setNewPosition((currentIndex + 1).toString())
+                  setSelectedPhotoForMobile(null)
+                }}
+                className="w-full flex items-center space-x-3 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-xl transition-colors"
+              >
+                <HiHashtag className="w-5 h-5 text-blue-600" />
+                <span className="font-medium text-gray-900 dark:text-white">
+                  {t('admin.photosEditor.actions.changePosition')}
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  handleDeletePhoto(selectedPhotoForMobile)
+                  setSelectedPhotoForMobile(null)
+                }}
+                className="w-full flex items-center space-x-3 px-4 py-3 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-xl transition-colors"
+              >
+                <HiTrash className="w-5 h-5 text-red-600" />
+                <span className="font-medium text-gray-900 dark:text-white">
+                  {t('admin.photosEditor.actions.delete')}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setSelectedPhotoForMobile(null)}
+                className="w-full px-4 py-3 bg-gray-500 hover:bg-gray-600 text-white font-bold rounded-xl transition-colors"
+              >
+                {t('admin.photosEditor.mobileModal.cancel')}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Move Photo Modal */}
+      <AnimatePresence>
+        {movingPhotoId && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            onClick={() => setMovingPhotoId(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-6">
+                <div className="flex items-center space-x-3 mb-2">
+                  <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                    <HiArrowRight className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                    {t('admin.photosEditor.moveModal.title')}
+                  </h3>
+                </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 ml-13">
+                  {t('admin.photosEditor.moveModal.subtitle')}
+                </p>
+              </div>
+              
+              <div className="space-y-2 mb-6 max-h-96 overflow-y-auto">
+                {categories
+                  .filter(cat => cat.value !== getPhotoCategory(movingPhotoId))
+                  .map((cat) => {
+                    const Icon = getCategoryIcon(cat.value)
+                    
+                    return (
+                      <button
+                        key={cat.value}
+                        onClick={() => handleMovePhoto(movingPhotoId, cat.value)}
+                        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-xl transition-all group"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <Icon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                          <span className="font-semibold text-gray-900 dark:text-white">
+                            {cat.label}
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {groupedPhotos[cat.value]?.length || 0} {t('admin.photosEditor.photos')}
+                        </span>
+                      </button>
+                    )
+                  })}
               </div>
 
-              {/* Photo Preview */}
-              <div className="p-4">
-                <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-200 dark:bg-gray-600 mb-4">
-                  <img
-                    src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${selectedPhotoForMobile.photo_url}`}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
-                  {/* Primary Badge - ВСЕГДА ПОКАЗЫВАЕТСЯ если is_primary */}
-                  {selectedPhotoForMobile.is_primary && (
-                    <div className="absolute top-3 left-3 bg-yellow-500 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-lg flex items-center space-x-1">
-                      <HiStar className="w-4 h-4" />
-                      <span>{t('admin.photosEditor.badges.primary')}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Action Buttons */}
-                <div className="space-y-3">
-                  {/* Set Primary Button */}
-                  <button
-                    onClick={() => handleSetPrimary(selectedPhotoForMobile.id, true)}
-                    disabled={processingPhotoId === selectedPhotoForMobile.id}
-                    className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl transition-colors shadow-md font-bold disabled:opacity-50"
-                  >
-                    <HiStar className="w-6 h-6" />
-                    <span>{t('admin.photosEditor.actions.setPrimary')}</span>
-                  </button>
-
-                  {/* Change Position Button */}
-                  <button
-                    onClick={() => {
-                      setPositionChangePhotoId(selectedPhotoForMobile.id)
-                      setSelectedPhotoForMobile(null)
-                    }}
-                    disabled={processingPhotoId === selectedPhotoForMobile.id}
-                    className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl transition-colors shadow-md font-bold disabled:opacity-50"
-                  >
-                    <HiHashtag className="w-6 h-6" />
-                    <span>{t('admin.photosEditor.actions.changePosition')}</span>
-                  </button>
-
-                  {/* Move Button */}
-                  <button
-                    onClick={() => {
-                      setMovingPhotoId(selectedPhotoForMobile.id)
-                      setSelectedPhotoForMobile(null)
-                    }}
-                    disabled={processingPhotoId === selectedPhotoForMobile.id}
-                    className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-purple-500 hover:bg-purple-600 text-white rounded-xl transition-colors shadow-md font-bold disabled:opacity-50"
-                  >
-                    <HiArrowRight className="w-6 h-6" />
-                    <span>{t('admin.photosEditor.actions.move')}</span>
-                  </button>
-
-                  {/* Delete Button */}
-                  <button
-                    onClick={() => handleDeletePhoto(selectedPhotoForMobile.id, true)}
-                    disabled={processingPhotoId === selectedPhotoForMobile.id}
-                    className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-red-500 hover:bg-red-600 text-white rounded-xl transition-colors shadow-md font-bold disabled:opacity-50"
-                  >
-                    {processingPhotoId === selectedPhotoForMobile.id ? (
-                      <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent" />
-                    ) : (
-                      <>
-                        <HiTrash className="w-6 h-6" />
-                        <span>{t('admin.photosEditor.actions.delete')}</span>
-                      </>
-                    )}
-                  </button>
-
-                  {/* Cancel Button */}
-                  <button
-                    onClick={() => setSelectedPhotoForMobile(null)}
-                    className="w-full px-6 py-4 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-xl transition-colors font-bold"
-                  >
-                    {t('admin.photosEditor.mobileModal.cancel')}
-                  </button>
-                </div>
-              </div>
+              <button
+                onClick={() => setMovingPhotoId(null)}
+                className="w-full px-4 py-3 bg-gray-500 hover:bg-gray-600 text-white font-bold rounded-xl transition-colors"
+              >
+                {t('admin.photosEditor.moveModal.cancel')}
+              </button>
             </motion.div>
           </motion.div>
         )}
@@ -771,134 +883,59 @@ const PhotosEditor = ({ photos: initialPhotos, propertyId, onUpdate }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            onClick={() => {
-              setPositionChangePhotoId(null)
-              setNewPosition('')
-            }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            onClick={() => setPositionChangePhotoId(null)}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6"
               onClick={(e) => e.stopPropagation()}
-              className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl"
             >
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center">
-                  <HiHashtag className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                    {t('admin.photosEditor.positionModal.title')}
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('admin.photosEditor.positionModal.subtitle', {
-                      max: groupedPhotos[getPhotoCategory(positionChangePhotoId)]?.length || 1
-                    })}
-                  </p>
-                </div>
+              <div className="mb-6">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                  {t('admin.photosEditor.positionModal.title')}
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {t('admin.photosEditor.positionModal.subtitle', { 
+                    max: groupedPhotos[getPhotoCategory(positionChangePhotoId)]?.length || 0 
+                  })}
+                </p>
               </div>
 
-              {/* Input */}
               <div className="mb-6">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   {t('admin.photosEditor.positionModal.label')}
                 </label>
                 <input
                   type="number"
                   min="1"
-                  max={groupedPhotos[getPhotoCategory(positionChangePhotoId)]?.length || 1}
+                  max={groupedPhotos[getPhotoCategory(positionChangePhotoId)]?.length || 0}
                   value={newPosition}
                   onChange={(e) => setNewPosition(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white font-semibold text-center text-2xl focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
-                  placeholder="1"
+                  className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl 
+                           bg-white dark:bg-gray-700 text-gray-900 dark:text-white
+                           focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-200 
+                           dark:focus:ring-blue-800 outline-none transition-all"
                   autoFocus
                 />
               </div>
 
-              {/* Buttons */}
               <div className="flex space-x-3">
                 <button
-                  onClick={() => {
-                    setPositionChangePhotoId(null)
-                    setNewPosition('')
-                  }}
+                  onClick={() => setPositionChangePhotoId(null)}
                   className="flex-1 px-4 py-3 bg-gray-500 hover:bg-gray-600 text-white font-bold rounded-xl transition-colors"
                 >
                   {t('admin.photosEditor.positionModal.cancel')}
                 </button>
                 <button
                   onClick={handleChangePosition}
-                  className="flex-1 px-4 py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-xl transition-colors"
+                  className="flex-1 px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl transition-colors"
                 >
                   {t('admin.photosEditor.positionModal.confirm')}
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Move Photo Modal (for both mobile and desktop) */}
-      <AnimatePresence>
-        {movingPhotoId && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            onClick={() => setMovingPhotoId(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl"
-            >
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
-                  <HiArrowRight className="w-7 h-7 text-purple-600 dark:text-purple-400" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                    {t('admin.photosEditor.moveModal.title')}
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('admin.photosEditor.moveModal.subtitle')}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="space-y-2 mb-6 max-h-96 overflow-y-auto">
-                {categories
-                  .filter(cat => cat.value !== getPhotoCategory(movingPhotoId))
-                  .map((cat) => (
-                    <button
-                      key={cat.value}
-                      onClick={() => handleMovePhoto(movingPhotoId, cat.value)}
-                      className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-xl transition-all group"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <HiTag className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                        <span className="font-semibold text-gray-900 dark:text-white">
-                          {cat.label}
-                        </span>
-                      </div>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {groupedPhotos[cat.value]?.length || 0} {t('admin.photosEditor.photos')}
-                      </span>
-                    </button>
-                  ))}
-              </div>
-
-              <button
-                onClick={() => setMovingPhotoId(null)}
-                className="w-full px-4 py-3 bg-gray-500 hover:bg-gray-600 text-white font-bold rounded-xl transition-colors"
-              >
-                {t('admin.photosEditor.moveModal.cancel')}
-              </button>
             </motion.div>
           </motion.div>
         )}

@@ -458,14 +458,20 @@ const handleDateRangeSelect = (dates) => {
         >
           <div className="flex items-start justify-between gap-4 mb-4">
             <div className="flex-1 min-w-0">
-              <h1 className="text-3xl md:text-5xl font-bold text-gray-900 dark:text-white mb-3 leading-tight">
-                {property.name || `Property #${property.property_number}`}
-              </h1>
+              <div className="flex items-center space-x-3 mb-3">
+                <h1 className="text-3xl md:text-5xl font-bold text-gray-900 dark:text-white leading-tight">
+                  {property.name || 'Property'}
+                </h1>
+                <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 
+                               text-sm md:text-base font-semibold rounded-lg">
+                  {property.property_number}
+                </span>
+              </div>
               
               {property.address && (
                 <div className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 mb-3">
                   <HiLocationMarker className="w-5 h-5 text-red-500 flex-shrink-0" />
-                  <span className="text-lg">{property.address}, {property.region}</span>
+                  <span className="text-lg">{property.address}</span>
                 </div>
               )}
 
