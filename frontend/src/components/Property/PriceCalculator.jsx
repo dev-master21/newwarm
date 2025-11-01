@@ -231,18 +231,19 @@ const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates =
         const hasZeroPriceDays = response.data.hasZeroPriceDays || false
         const zeroPriceDaysCount = response.data.breakdown?.filter((d) => d.isZeroPrice).length || 0
         
-        // Анализ доступности каждого дня
+        // Анализ доступности каждого дня - используем данные от бэкенда!
+        const unavailableDatesSet = new Set(response.data.unavailableDates || [])
         const enhancedBreakdown = response.data.breakdown.map(day => ({
           ...day,
-          isOccupied: isDateOccupiedInPeriod(day.date)
+          isOccupied: unavailableDatesSet.has(day.date)  // ✅ Используем данные от бэкенда
         }))
-
+        
         // Считаем свободные и занятые дни
         const occupiedDaysInPeriod = enhancedBreakdown.filter(d => d.isOccupied).length
         const freeDaysInPeriod = enhancedBreakdown.filter(d => !d.isOccupied).length
         
-        // ИЗМЕНЕНО: Дни с нулевой ценой также считаем как "занятые" для UI
-        const hasOccupiedDays = occupiedDaysInPeriod > 0 || hasZeroPriceDays
+        // Используем флаг isAvailable от бэкенда как основной индикатор
+        const hasOccupiedDays = !response.data.isAvailable || hasZeroPriceDays
 
         setResult({
           ...response.data,
@@ -387,31 +388,37 @@ const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates =
                   <HiCalendar className="inline w-4 h-4 mr-1.5" />
                   {t('property.priceCalculator.checkIn')}
                 </label>
-                <DatePicker
-                  selected={checkIn}
-                  onChange={(date) => setCheckIn(date)}
-                  selectsStart
-                  startDate={checkIn}
-                  endDate={checkOut}
-                  minDate={new Date()}
-                  placeholderText={t('property.priceCalculator.selectCheckIn')}
-                  dateFormat="dd/MM/yyyy"
-                  filterDate={isDateAvailable}
-                  dayClassName={(date) => {
-                    const dateStr = dateToLocalDateStr(date)
-                    if (freeFirstDays.has(dateStr)) {
-                      return 'first-free-date'
+                  <DatePicker
+                    selected={checkIn}
+                    onChange={(date) => setCheckIn(date)}
+                    selectsStart
+                    startDate={checkIn}
+                    endDate={checkOut}
+                    minDate={new Date()}
+                    placeholderText={t('property.priceCalculator.selectCheckIn')}
+                    dateFormat="dd/MM/yyyy"
+                    filterDate={isDateAvailable}
+                    dayClassName={(date) => {
+                      const dateStr = dateToLocalDateStr(date)
+                      if (freeFirstDays.has(dateStr)) {
+                        return 'first-free-date'
+                      }
+                      if (!isDateAvailable(date)) {
+                        return 'occupied-date'
+                      }
+                      return undefined
+                    }}
+                    highlightDates={Array.from(freeFirstDays).map(d => new Date(d))}
+                    customInput={
+                      <input
+                        readOnly
+                        inputMode="none"
+                        className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl
+                                 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-200
+                                 dark:bg-gray-700 dark:text-white transition-all"
+                      />
                     }
-                    if (!isDateAvailable(date)) {
-                      return 'occupied-date'
-                    }
-                    return undefined
-                  }}
-                  highlightDates={Array.from(freeFirstDays).map(d => new Date(d))}
-                  className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl
-                           focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-200
-                           dark:bg-gray-700 dark:text-white transition-all"
-                />
+                  />
               </div>
 
               {/* Check-out */}
@@ -420,31 +427,37 @@ const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates =
                   <HiCalendar className="inline w-4 h-4 mr-1.5" />
                   {t('property.priceCalculator.checkOut')}
                 </label>
-                <DatePicker
-                  selected={checkOut}
-                  onChange={(date) => setCheckOut(date)}
-                  selectsEnd
-                  startDate={checkIn}
-                  endDate={checkOut}
-                  minDate={checkIn || new Date()}
-                  placeholderText={t('property.priceCalculator.selectCheckOut')}
-                  dateFormat="dd/MM/yyyy"
-                  filterDate={isDateAvailable}
-                  dayClassName={(date) => {
-                    const dateStr = dateToLocalDateStr(date)
-                    if (freeFirstDays.has(dateStr)) {
-                      return 'first-free-date'
+                  <DatePicker
+                    selected={checkOut}
+                    onChange={(date) => setCheckOut(date)}
+                    selectsEnd
+                    startDate={checkIn}
+                    endDate={checkOut}
+                    minDate={checkIn || new Date()}
+                    placeholderText={t('property.priceCalculator.selectCheckOut')}
+                    dateFormat="dd/MM/yyyy"
+                    filterDate={isDateAvailable}
+                    dayClassName={(date) => {
+                      const dateStr = dateToLocalDateStr(date)
+                      if (freeFirstDays.has(dateStr)) {
+                        return 'first-free-date'
+                      }
+                      if (!isDateAvailable(date)) {
+                        return 'occupied-date'
+                      }
+                      return undefined
+                    }}
+                    highlightDates={Array.from(freeFirstDays).map(d => new Date(d))}
+                    customInput={
+                      <input
+                        readOnly
+                        inputMode="none"
+                        className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl
+                                 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-200
+                                 dark:bg-gray-700 dark:text-white transition-all"
+                      />
                     }
-                    if (!isDateAvailable(date)) {
-                      return 'occupied-date'
-                    }
-                    return undefined
-                  }}
-                  highlightDates={Array.from(freeFirstDays).map(d => new Date(d))}
-                  className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl
-                           focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-200
-                           dark:bg-gray-700 dark:text-white transition-all"
-                />
+                  />
               </div>
             </div>
 
@@ -518,10 +531,11 @@ const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates =
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => {
+                                  const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
                                   onShowAlternatives({
                                     startDate: dateToLocalDateStr(checkIn),
                                     endDate: dateToLocalDateStr(checkOut),
-                                    bedrooms: property?.bedrooms || 1
+                                    nightsCount: nights
                                   })
                                   onClose()
                                 }}
@@ -566,47 +580,29 @@ const PriceCalculator = ({ propertyId, property, isOpen, onClose, blockedDates =
                       <p className="text-xs text-red-800 dark:text-red-300 mb-3">
                         {t('property.priceCalculator.viewDetailsBelow')}
                       </p>
-                      
-                      {/* Action Buttons */}
-                      <div className="flex items-center space-x-2">
-                        {onOpenBooking && (
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => {
-                              onOpenBooking(dateToLocalDateStr(checkIn), dateToLocalDateStr(checkOut))
-                              onClose()
-                            }}
-                            className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700
-                                     text-white text-xs font-semibold py-2 px-3 rounded-lg transition-all
-                                     flex items-center justify-center space-x-1.5 shadow-md hover:shadow-lg"
-                          >
-                            <HiCheckCircle className="w-4 h-4" />
-                            <span>{t('property.priceCalculator.bookNow')}</span>
-                          </motion.button>
-                        )}
-                        
-                        {onShowAlternatives && (
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => {
-                              onShowAlternatives({
-                                startDate: dateToLocalDateStr(checkIn),
-                                endDate: dateToLocalDateStr(checkOut),
-                                bedrooms: property?.bedrooms || 1
-                              })
-                              onClose()
-                            }}
-                            className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700
-                                     text-white text-xs font-semibold py-2 px-3 rounded-lg transition-all
-                                     flex items-center justify-center space-x-1.5 shadow-md hover:shadow-lg"
-                          >
-                            <HiSparkles className="w-4 h-4" />
-                            <span>{t('property.priceCalculator.viewAlternatives')}</span>
-                          </motion.button>
-                        )}
-                      </div>
+
+                      {/* Action Button - ТОЛЬКО альтернативы */}
+                      {onShowAlternatives && (
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => {
+                            const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24))
+                            onShowAlternatives({
+                              startDate: dateToLocalDateStr(checkIn),
+                              endDate: dateToLocalDateStr(checkOut),
+                              nightsCount: nights
+                            })
+                            onClose()
+                          }}
+                          className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700
+                                   text-white font-semibold py-3 px-4 rounded-lg transition-all
+                                   flex items-center justify-center space-x-2 shadow-md hover:shadow-lg"
+                        >
+                          <HiSparkles className="w-5 h-5" />
+                          <span>{t('property.priceCalculator.viewAlternatives')}</span>
+                        </motion.button>
+                      )}
                     </motion.div>
                   )}
 

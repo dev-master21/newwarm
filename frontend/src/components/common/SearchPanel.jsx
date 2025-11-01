@@ -266,22 +266,28 @@ useEffect(() => {
                                     flex items-center justify-center pointer-events-none z-[1]">
                         <HiCalendar className="w-5 h-5 text-green-600 dark:text-green-400" />
                       </div>
-                      <DatePicker
-                        selected={searchData.checkIn}
-                        onChange={(date) => setSearchData({ ...searchData, checkIn: date })}
-                        selectsStart
-                        startDate={searchData.checkIn}
-                        endDate={searchData.checkOut}
-                        minDate={new Date()}
-                        placeholderText={t('search.selectDate')}
-                        dateFormat="dd MMM yyyy"
-                        popperClassName="!z-[10000]"
-                        popperPlacement="bottom-start"
-                        className="w-full pl-16 pr-4 py-4 border-2 border-gray-200 dark:border-gray-600 
-                                 rounded-xl focus:ring-2 focus:ring-[#ba2e2d] focus:border-[#ba2e2d]
-                                 dark:bg-gray-700 dark:text-white transition-all cursor-pointer
-                                 placeholder:text-gray-400 dark:placeholder:text-gray-500"
-                      />
+                        <DatePicker
+                          selected={searchData.checkIn}
+                          onChange={(date) => setSearchData({ ...searchData, checkIn: date })}
+                          selectsStart
+                          startDate={searchData.checkIn}
+                          endDate={searchData.checkOut}
+                          minDate={new Date()}
+                          placeholderText={t('search.selectDate')}
+                          dateFormat="dd MMM yyyy"
+                          popperClassName="!z-[10000]"
+                          popperPlacement="bottom-start"
+                          customInput={
+                            <input
+                              readOnly
+                              inputMode="none"
+                              className="w-full pl-16 pr-4 py-4 border-2 border-gray-200 dark:border-gray-600 
+                                       rounded-xl focus:ring-2 focus:ring-[#ba2e2d] focus:border-[#ba2e2d]
+                                       dark:bg-gray-700 dark:text-white transition-all cursor-pointer
+                                       placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                            />
+                          }
+                        />
                     </div>
                   </div>
                   
@@ -297,24 +303,30 @@ useEffect(() => {
                                     ${!searchData.checkIn ? 'opacity-50' : ''}`}>
                         <HiCalendar className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                       </div>
-                      <DatePicker
-                        selected={searchData.checkOut}
-                        onChange={(date) => setSearchData({ ...searchData, checkOut: date })}
-                        selectsEnd
-                        startDate={searchData.checkIn}
-                        endDate={searchData.checkOut}
-                        minDate={searchData.checkIn || new Date()}
-                        placeholderText={t('search.selectDate')}
-                        dateFormat="dd MMM yyyy"
-                        popperClassName="!z-[10000]"
-                        popperPlacement="bottom-start"
-                        disabled={!searchData.checkIn}
-                        className={`w-full pl-16 pr-4 py-4 border-2 border-gray-200 dark:border-gray-600 
-                                 rounded-xl focus:ring-2 focus:ring-[#ba2e2d] focus:border-[#ba2e2d]
-                                 dark:bg-gray-700 dark:text-white transition-all
-                                 placeholder:text-gray-400 dark:placeholder:text-gray-500
-                                 ${!searchData.checkIn ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
-                      />
+                        <DatePicker
+                          selected={searchData.checkOut}
+                          onChange={(date) => setSearchData({ ...searchData, checkOut: date })}
+                          selectsEnd
+                          startDate={searchData.checkIn}
+                          endDate={searchData.checkOut}
+                          minDate={searchData.checkIn || new Date()}
+                          placeholderText={t('search.selectDate')}
+                          dateFormat="dd MMM yyyy"
+                          popperClassName="!z-[10000]"
+                          popperPlacement="bottom-start"
+                          disabled={!searchData.checkIn}
+                          customInput={
+                            <input
+                              readOnly
+                              inputMode="none"
+                              className={`w-full pl-16 pr-4 py-4 border-2 border-gray-200 dark:border-gray-600 
+                                       rounded-xl focus:ring-2 focus:ring-[#ba2e2d] focus:border-[#ba2e2d]
+                                       dark:bg-gray-700 dark:text-white transition-all
+                                       placeholder:text-gray-400 dark:placeholder:text-gray-500
+                                       ${!searchData.checkIn ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                            />
+                          }
+                        />
                     </div>
                     {!searchData.checkIn && (
                       <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">

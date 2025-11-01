@@ -158,6 +158,8 @@ const DateRangePicker = ({ onRangeSelect, initialRange = { start: null, end: nul
               value={endDate}
               onChange={handleEndDateChange}
               min={startDate}
+              readOnly
+              inputMode="none"
               className="absolute opacity-0 pointer-events-none"
             />
             <button

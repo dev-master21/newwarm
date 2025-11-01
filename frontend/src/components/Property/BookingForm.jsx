@@ -616,6 +616,12 @@ const BookingForm = ({ property, selectedDates = null, isOpen, onClose }) => {
                               inline
                               monthsShown={1}
                               selectsRange={false}
+                              customInput={
+                                <input
+                                  readOnly
+                                  inputMode="none"
+                                />
+                              }
                               highlightDates={tempCheckIn ? [tempCheckIn] : []}
                             />
                             <div className="mt-3 flex items-center justify-between">

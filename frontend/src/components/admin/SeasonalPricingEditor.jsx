@@ -373,6 +373,8 @@ const SeasonalPricingEditor = ({ pricing, propertyId, onUpdate }) => {
                             className="sr-only"
                             value={getInputValue(index, 'start')}
                             onChange={(e) => handleDateChange(index, 'start', e)}
+                            readOnly
+                            inputMode="none"
                           />
                         </div>
 
@@ -401,6 +403,8 @@ const SeasonalPricingEditor = ({ pricing, propertyId, onUpdate }) => {
                             className="sr-only"
                             value={getInputValue(index, 'end')}
                             onChange={(e) => handleDateChange(index, 'end', e)}
+                            readOnly
+                            inputMode="none"
                           />
                         </div>
                       </div>

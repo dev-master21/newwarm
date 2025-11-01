@@ -199,6 +199,8 @@ const ExportBookings = ({ isOpen, onClose, currentMonth }) => {
                           onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
                           className="w-full px-3 py-2 bg-white dark:bg-gray-700 border-2 
                                    border-gray-200 dark:border-gray-600 rounded-lg text-sm"
+                          readOnly
+                          inputMode="none"
                         />
                       </div>
                       <div>
@@ -211,6 +213,8 @@ const ExportBookings = ({ isOpen, onClose, currentMonth }) => {
                           onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
                           className="w-full px-3 py-2 bg-white dark:bg-gray-700 border-2 
                                    border-gray-200 dark:border-gray-600 rounded-lg text-sm"
+                          readOnly
+                          inputMode="none"
                         />
                       </div>
                     </div>

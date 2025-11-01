@@ -1138,6 +1138,13 @@ const handleDateRangeSelect = (dates) => {
             onShowAlternatives={(params) => {
               setAlternativesParams(params)
               setShowAlternatives(true)
+              // Плавный скролл к альтернативам после небольшой задержки (чтобы модалка успела закрыться)
+              setTimeout(() => {
+                const alternativesSection = document.getElementById('alternatives')
+                if (alternativesSection) {
+                  alternativesSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }
+              }, 300)
             }}
           />
         {/* Booking Modal */}

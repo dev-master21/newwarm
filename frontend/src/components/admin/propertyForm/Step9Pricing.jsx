@@ -435,6 +435,8 @@ const Step9Pricing = () => {
                               onChange={(e) => handleDateChange(index, 'start', e)}
                               className="absolute opacity-0 w-0 h-0"
                               tabIndex={-1}
+                              readOnly
+                              inputMode="none"
                             />
                             {/* Видимая кнопка */}
                             <button
@@ -468,6 +470,8 @@ const Step9Pricing = () => {
                               onChange={(e) => handleDateChange(index, 'end', e)}
                               className="absolute opacity-0 w-0 h-0"
                               tabIndex={-1}
+                              readOnly
+                              inputMode="none"  
                             />
                             {/* Видимая кнопка */}
                             <button

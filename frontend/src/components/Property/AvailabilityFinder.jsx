@@ -346,16 +346,22 @@ const AvailabilityFinder = ({ propertyId, onSelectDates, onOpenCalculator, onOpe
                   <HiCalendar className="inline w-4 h-4 mr-1" />
                   {t('property.availabilityFinder.selectMonth')}
                 </label>
-                <DatePicker
-                  selected={selectedMonth}
-                  onChange={setSelectedMonth}
-                  dateFormat="MMMM yyyy"
-                  showMonthYearPicker
-                  minDate={new Date()}
-                  placeholderText={t('property.availabilityFinder.monthPlaceholder')}
-                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 
-                           rounded-xl focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
-                />
+                  <DatePicker
+                    selected={selectedMonth}
+                    onChange={setSelectedMonth}
+                    dateFormat="MMMM yyyy"
+                    showMonthYearPicker
+                    minDate={new Date()}
+                    placeholderText={t('property.availabilityFinder.monthPlaceholder')}
+                    customInput={
+                      <input
+                        readOnly
+                        inputMode="none"
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 
+                                 rounded-xl focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
+                      />
+                    }
+                  />
               </div>
             </motion.div>
           ) : (
@@ -372,33 +378,45 @@ const AvailabilityFinder = ({ propertyId, onSelectDates, onOpenCalculator, onOpe
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {t('property.availabilityFinder.startDate')}
                   </label>
-                  <DatePicker
-                    selected={startDate}
-                    onChange={setStartDate}
-                    selectsStart
-                    startDate={startDate}
-                    endDate={endDate}
-                    minDate={new Date()}
-                    placeholderText={t('property.availabilityFinder.startDatePlaceholder')}
-                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 
-                             rounded-xl focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
-                  />
+                    <DatePicker
+                      selected={startDate}
+                      onChange={setStartDate}
+                      selectsStart
+                      startDate={startDate}
+                      endDate={endDate}
+                      minDate={new Date()}
+                      placeholderText={t('property.availabilityFinder.startDatePlaceholder')}
+                      customInput={
+                        <input
+                          readOnly
+                          inputMode="none"
+                          className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 
+                                   rounded-xl focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
+                        />
+                      }
+                    />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {t('property.availabilityFinder.endDate')}
                   </label>
-                  <DatePicker
-                    selected={endDate}
-                    onChange={setEndDate}
-                    selectsEnd
-                    startDate={startDate}
-                    endDate={endDate}
-                    minDate={startDate || new Date()}
-                    placeholderText={t('property.availabilityFinder.endDatePlaceholder')}
-                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 
-                             rounded-xl focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
-                  />
+                    <DatePicker
+                      selected={endDate}
+                      onChange={setEndDate}
+                      selectsEnd
+                      startDate={startDate}
+                      endDate={endDate}
+                      minDate={startDate || new Date()}
+                      placeholderText={t('property.availabilityFinder.endDatePlaceholder')}
+                      customInput={
+                        <input
+                          readOnly
+                          inputMode="none"
+                          className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 
+                                   rounded-xl focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
+                        />
+                      }
+                    />
                 </div>
               </div>
             </motion.div>
