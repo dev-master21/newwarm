@@ -1,5 +1,6 @@
 // frontend/src/services/property.service.ts
 import api from './api'
+import i18n from '../i18n'
 
 export const propertyService = {
   /**
@@ -60,22 +61,48 @@ export const propertyService = {
   async findAlternativeProperties(propertyId: string | number, params: any) {
     return await api.post(`/properties/${propertyId}/find-alternative-properties`, params)
   },
+
   /**
    * Получение объекта по ID (публичный)
    */
   async getPropertyById(propertyId: string | number) {
     return await api.get(`/properties/${propertyId}`)
   },
+
   /**
    * Подсчет доступных объектов
    */
   async countAvailableProperties(params: any = {}) {
     return await api.get('/properties/count-available', { params })
   },
+
   /**
    * Получение вилл для страницы Villas
    */
   async getVillasForPage(params: any = {}) {
     return await api.get('/properties/villas', { params })
+  },
+
+  /**
+   * Получение объектов из одного комплекса
+   */
+  async getComplexProperties(complexName: string, language: string = 'ru', excludeId: string | number | null = null) {
+    try {
+      const params: any = {
+        language: language
+      }
+      
+      if (excludeId) {
+        params.excludeId = excludeId
+      }
+      
+      const response = await api.get(`/properties/complex/${encodeURIComponent(complexName)}`, { params })
+      console.log('🔍 Response от axios:', response)
+      console.log('🔍 Response.data:', response.data)
+      return response.data  // ← Убедись что тут response.data
+    } catch (error) {
+      console.error('Error fetching complex properties:', error)
+      throw error
+    }
   }
 }
